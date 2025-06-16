@@ -1,4 +1,4 @@
-module JosephAntony37900/Geova-back-1
+module github.com/JosephAntony37900/Geova-back-1
 
 go 1.24.4
 
