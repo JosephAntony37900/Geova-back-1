@@ -21,7 +21,6 @@ func NewLoginUseCase(db repository.UserRepository, jwt services.TokenManager, bc
 	}
 }
 
-
 func (lu *LoginUseCase) Execute(email string, password string) (*entities.User,string, error) {
 	user, err := lu.db.FindByEmail(email)
 	if err != nil {
