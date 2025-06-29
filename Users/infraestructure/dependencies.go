@@ -21,7 +21,7 @@ func InitUserDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	}
 
 	bcryptService := service.InitBcryptService()
-    //jwtManager := services.InitTokenManager()
+    jwtManager := service.InitTokenManager()
 
 	userRepo := repo_users.NewUserMySQLRepository(conn)
 	//3
@@ -30,13 +30,15 @@ func InitUserDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	getUserByIdUseCase := app_users.NewGetUserByIdUseCase(userRepo)
 	upateUserUseCase := app_users.NewUpdateUserUseCase(userRepo, bcryptService)
 	deleteUserUseCase := app_users.NewDeleteUserUseCase(userRepo)
+	loginUserUsecas := app_users.NewLoginUseCase(userRepo, jwtManager, bcryptService )
 
 	createUserController := control_users.NewCreateUserController(createUserUseCase)
 	getAllUsersController := control_users.NewGetAllUsersController(getAllUsersUseCase)
 	getUserByIdUserController := control_users.NewGetUserByIdUseController(getUserByIdUseCase)
 	updateUserController := control_users.NewUpdateUserController(upateUserUseCase)
 	deleteUserController := control_users.NewDeleteUserController(deleteUserUseCase)
-
-	routes_users.SetupUserRoutes(engine, createUserController, getAllUsersController, getUserByIdUserController, updateUserController, deleteUserController)
+	loginUserController := control_users.NewLoginUserController(loginUserUsecas)
+	
+	routes_users.SetupUserRoutes(engine, createUserController, getAllUsersController, getUserByIdUserController, updateUserController, deleteUserController, loginUserController)
 
 }
