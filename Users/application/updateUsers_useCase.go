@@ -1,41 +1,25 @@
 package application
 
 import (
-	"fmt"
-
+	"github.com/JosephAntony37900/Geova-back-1/Users/domain/entities"
 	"github.com/JosephAntony37900/Geova-back-1/Users/domain/repository"
+	"github.com/JosephAntony37900/Geova-back-1/Users/domain/services"
 )
 
 type UpdateUserCase struct {
-	db repository.UserRepository
+	repo   repository.UserRepository
+	bcrypt services.IBcryptService
 }
 
-func NewUpdateUserCase(db repository.UserRepository) *UpdateUserCase {
-	return &UpdateUserCase{db: db}
+func NewUpdateUserUseCase(repo repository.UserRepository, bcrypt services.IBcryptService) *UpdateUserCase {
+	return &UpdateUserCase{repo: repo, bcrypt: bcrypt}
 }
 
-func (uu *UpdateUserCase) Execute(userId int, userData map[string]interface{}) error {
-	user, err := uu.db.FindById(userId)
+func (uc *UpdateUserCase) Execute(user entities.User) error {
+	hashedPassword, err := uc.bcrypt.HashPassword(user.Password)
 	if err != nil {
 		return err
 	}
-
-	if nombre, ok := userData["nombre"].(string); ok {
-		user.Nombre = nombre
-	}
-	if apellidos, ok := userData["apellidos"].(string); ok {
-		user.Apellidos = apellidos
-	}
-	if email, ok := userData["email"].(string); ok {
-		user.Email = email
-	}
-	if password, ok := userData["password"].(string); ok {
-		user.Password = password
-	}
-    // guardo los cambios en el repositorio
-	if err := uu.db.Update(*user); err != nil {
-		return fmt.Errorf("error actualizando el usuario: %w", err)
-	}
-
-	return nil
+	user.Password = hashedPassword
+	return uc.repo.Update(user)
 }
