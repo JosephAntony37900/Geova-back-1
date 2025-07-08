@@ -84,7 +84,7 @@ func (r *ProjectMySQLRepository) FindByName(nombre string) ([]entities.Project, 
 	return projects, nil
 }
 
-func (r *ProjectMySQLRepository) FindByCategoria(categoria string) ([]entities.Project, error) {
+func (r *ProjectMySQLRepository) FindByCategory(categoria string) ([]entities.Project, error) {
 	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE Categoria = ?`
 	rows := r.db.FetchRows(query, categoria)
 	defer rows.Close()

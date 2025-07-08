@@ -20,6 +20,7 @@ func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(projectRepo)
 	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(projectRepo)
 	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(projectRepo)
+	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(projectRepo)
 	upateProjectUseCase := app_projects.NewUpdateProjectUseCase(projectRepo )
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(projectRepo)
 
@@ -28,11 +29,12 @@ func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	getAllProjectController := control_projects.NewGetAllProjectsController(getAllProjectsUseCase)
 	getByIdProjectController := control_projects.NewGetProjectByIdUseController(getProjectByIdUseCase)
 	getProjectByNameController := control_projects.NewGetProjectByNameController(getProjectByNameUseCase)
+	getProjectByCategoryController := control_projects.NewGetProjectByCategoryController(getProjectByCategoryUseCase)
 	updateProjectController := control_projects.NewUpdateProjectController(upateProjectUseCase)
 	deleteProjectController := control_projects.NewDeleteProjectController(deleteProjectUseCase)
 
 
 	
 
-	routes_projects.SetUpProjectsRoutes(engine, createProjectController, getAllProjectController, getByIdProjectController, getProjectByNameController, updateProjectController, deleteProjectController )
+	routes_projects.SetUpProjectsRoutes(engine, createProjectController, getAllProjectController, getByIdProjectController, getProjectByNameController, getProjectByCategoryController,updateProjectController, deleteProjectController )
 }
