@@ -10,5 +10,5 @@ type ProjectRepository interface {
 	Delete (id int) error
 	FindByName(nombre string) ([]entities.Project, error)
 	FindByCategory(categoria string) ([]entities.Project, error)
-	FindByFecha(fecha string) ([]entities.Project, error)
+	FindByDate(fecha string) ([]entities.Project, error)
 }
