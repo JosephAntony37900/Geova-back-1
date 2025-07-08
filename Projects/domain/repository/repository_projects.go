@@ -8,4 +8,7 @@ type ProjectRepository interface {
 	FindAll() ([]entities.Project, error)
 	Update(proyect entities.Project) error
 	Delete (id int) error
+	FindByName(nombre string) ([]entities.Project, error)
+	FindByCategoria(categoria string) ([]entities.Project, error)
+	FindByFecha(fecha string) ([]entities.Project, error)
 }

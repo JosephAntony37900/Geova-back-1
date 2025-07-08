@@ -9,12 +9,14 @@ import (
 func SetUpProjectsRoutes (r *gin.Engine, createProjectController *controllers.CreateProjectController, 
 						getProjectsController *controllers.GetAllProjectsController,
 						getProjectByIdController *controllers.GetProjectByIdController,
+						getProjectByNameController *controllers.GetProjectByNameController,
 						updateProjectController *controllers.UpdateProjectController,
 						deleteProjectController *controllers.DeleteProjectController) {
 
 	r.POST("/projects", createProjectController.Execute)
 	r.GET("/projects", getProjectsController.Execute)
-	r.GET("/projects/:id", getProjectByIdController.Execute)
+	r.GET("/projects/id/:id", getProjectByIdController.Execute)
+	r.GET("/projects/nombre/:nombre", getProjectByNameController.Execute)
 	r.PUT("/projects/:id", updateProjectController.Execute)
 	r.DELETE("/projects/:id", deleteProjectController.Execute)
 }

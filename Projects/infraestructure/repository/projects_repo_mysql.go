@@ -67,3 +67,53 @@ func (r *ProjectMySQLRepository) Delete(id int) error {
 	_, err := r.db.ExecutePreparedQuery(query, id)
 	return err
 }
+
+func (r *ProjectMySQLRepository) FindByName(nombre string) ([]entities.Project, error) {
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE NombreProyecto LIKE ?`
+	rows := r.db.FetchRows(query, "%"+nombre+"%")
+	defer rows.Close()
+
+	var projects []entities.Project
+	for rows.Next() {
+		var project entities.Project
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+			return nil, err
+		}
+		projects = append(projects, project)
+	}
+	return projects, nil
+}
+
+func (r *ProjectMySQLRepository) FindByCategoria(categoria string) ([]entities.Project, error) {
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE Categoria = ?`
+	rows := r.db.FetchRows(query, categoria)
+	defer rows.Close()
+
+	var projects []entities.Project
+	for rows.Next() {
+		var project entities.Project
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+			return nil, err
+		}
+		projects = append(projects, project)
+	}
+	return projects, nil
+}
+
+func (r *ProjectMySQLRepository) FindByFecha(fecha string) ([]entities.Project, error) {
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE Fecha = ?`
+	rows := r.db.FetchRows(query, fecha)
+	defer rows.Close()
+
+	var projects []entities.Project
+	for rows.Next() {
+		var project entities.Project
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+			return nil, err
+		}
+		projects = append(projects, project)
+	}
+	return projects, nil
+}
+
+
