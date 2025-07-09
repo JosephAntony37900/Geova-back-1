@@ -17,8 +17,8 @@ func NewProjectMySQLRepository(db *core.Conn_MySQL) repository.ProjectRepository
 }
 
 func (r *ProjectMySQLRepository) Save(project entities.Project) error {
-	query := `INSERT INTO projects (NombreProyecto, Fecha, Categoria, Descripcion, Img) VALUES (?, ?, ?, ?, ?)`
-	_, err := r.db.ExecutePreparedQuery(query, project.NombreProyecto, project.Fecha, project.Categoria, project.Descripcion, project.Img)
+	query := `INSERT INTO projects (NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.db.ExecutePreparedQuery(query, project.NombreProyecto, project.Fecha, project.Categoria, project.Descripcion, project.Img, project.Lat, project.Lng)
 	if err != nil {
 		return fmt.Errorf("error al guardar proyecto: %w", err)
 	}
@@ -26,13 +26,13 @@ func (r *ProjectMySQLRepository) Save(project entities.Project) error {
 }
 
 func (r *ProjectMySQLRepository) FindById(id int) (*entities.Project, error) {
-	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE Id = ?`
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng FROM projects WHERE Id = ?`
 	rows := r.db.FetchRows(query, id)
 	defer rows.Close()
 
 	if rows.Next() {
 		var project entities.Project
-		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img, &project.Lat, &project.Lng); err != nil {
 			return nil, err
 		}
 		return &project, nil
@@ -41,14 +41,14 @@ func (r *ProjectMySQLRepository) FindById(id int) (*entities.Project, error) {
 }
 
 func (r *ProjectMySQLRepository) FindAll() ([]entities.Project, error) {
-	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects`
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng FROM projects`
 	rows := r.db.FetchRows(query)
 	defer rows.Close()
 
 	var projects []entities.Project
 	for rows.Next() {
 		var project entities.Project
-		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img, &project.Lat, &project.Lng); err != nil {
 			return nil, err
 		}
 		projects = append(projects, project)
@@ -57,8 +57,8 @@ func (r *ProjectMySQLRepository) FindAll() ([]entities.Project, error) {
 }
 
 func (r *ProjectMySQLRepository) Update(project entities.Project) error {
-	query := `UPDATE projects SET NombreProyecto = ?, Fecha = ?, Categoria = ?, Descripcion = ?, Img = ? WHERE Id = ?`
-	_, err := r.db.ExecutePreparedQuery(query, project.NombreProyecto, project.Fecha, project.Categoria, project.Descripcion, project.Img, project.Id)
+	query := `UPDATE projects SET NombreProyecto = ?, Fecha = ?, Categoria = ?, Descripcion = ?, Img = ?, Lat = ?, Lng = ? WHERE Id = ?`
+	_, err := r.db.ExecutePreparedQuery(query, project.NombreProyecto, project.Fecha, project.Categoria, project.Descripcion, project.Img, project.Lat, project.Lng, project.Id)
 	return err
 }
 
@@ -69,14 +69,14 @@ func (r *ProjectMySQLRepository) Delete(id int) error {
 }
 
 func (r *ProjectMySQLRepository) FindByName(nombre string) ([]entities.Project, error) {
-	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE NombreProyecto LIKE ?`
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng FROM projects WHERE NombreProyecto LIKE ?`
 	rows := r.db.FetchRows(query, "%"+nombre+"%")
 	defer rows.Close()
 
 	var projects []entities.Project
 	for rows.Next() {
 		var project entities.Project
-		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img, &project.Lat, &project.Lng); err != nil {
 			return nil, err
 		}
 		projects = append(projects, project)
@@ -85,14 +85,14 @@ func (r *ProjectMySQLRepository) FindByName(nombre string) ([]entities.Project, 
 }
 
 func (r *ProjectMySQLRepository) FindByCategory(categoria string) ([]entities.Project, error) {
-	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE Categoria = ?`
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng FROM projects WHERE Categoria = ?`
 	rows := r.db.FetchRows(query, categoria)
 	defer rows.Close()
 
 	var projects []entities.Project
 	for rows.Next() {
 		var project entities.Project
-		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img, &project.Lat, &project.Lng); err != nil {
 			return nil, err
 		}
 		projects = append(projects, project)
@@ -101,19 +101,17 @@ func (r *ProjectMySQLRepository) FindByCategory(categoria string) ([]entities.Pr
 }
 
 func (r *ProjectMySQLRepository) FindByDate(fecha string) ([]entities.Project, error) {
-	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img FROM projects WHERE Fecha = ?`
+	query := `SELECT Id, NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng FROM projects WHERE Fecha = ?`
 	rows := r.db.FetchRows(query, fecha)
 	defer rows.Close()
 
 	var projects []entities.Project
 	for rows.Next() {
 		var project entities.Project
-		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img); err != nil {
+		if err := rows.Scan(&project.Id, &project.NombreProyecto, &project.Fecha, &project.Categoria, &project.Descripcion, &project.Img, &project.Lat, &project.Lng); err != nil {
 			return nil, err
 		}
 		projects = append(projects, project)
 	}
 	return projects, nil
 }
-
-

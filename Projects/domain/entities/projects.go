@@ -7,4 +7,6 @@ type Project struct {
 	Categoria string		
 	Descripcion string
 	Img string
+	Lat float64
+	Lng float64
 }

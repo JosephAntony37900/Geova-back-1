@@ -35,6 +35,18 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 	project.Categoria = ctx.PostForm("categoria")
 	project.Descripcion = ctx.PostForm("descripcion")
 
+	latStr := ctx.PostForm("lat")
+	lngStr := ctx.PostForm("lng")
+
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err == nil {
+		project.Lat = lat
+	}
+	lng, err := strconv.ParseFloat(lngStr, 64)
+	if err == nil {
+		project.Lng = lng
+	}
+
 	var imagePath string
 	file, err := ctx.FormFile("img")
 	if err == nil {
