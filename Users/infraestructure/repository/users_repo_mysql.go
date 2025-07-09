@@ -17,8 +17,14 @@ func NewUserMySQLRepository(db *core.Conn_MySQL) repository.UserRepository {
 }
 
 func (r *UserMySQLRepository) Save(user entities.User) error {
-	query := `INSERT INTO users (Nombre, Apellidos, Email, Password) VALUES (?, ?, ?, ?)`
-	_, err := r.db.ExecutePreparedQuery(query, user.Nombre, user.Apellidos, user.Email, user.Password)
+	query := `INSERT INTO users (Username, Nombre, Apellidos, Email, Password) VALUES (?, ?, ?, ?, ?)`
+	_, err := r.db.ExecutePreparedQuery(query,
+		user.Username,
+		user.Nombre,
+		user.Apellidos,
+		user.Email,
+		user.Password,
+	)
 	if err != nil {
 		return fmt.Errorf("error al guardar usuario: %w", err)
 	}
@@ -26,13 +32,20 @@ func (r *UserMySQLRepository) Save(user entities.User) error {
 }
 
 func (r *UserMySQLRepository) FindById(id int) (*entities.User, error) {
-	query := `SELECT Id, Nombre, Apellidos, Email, Password FROM users WHERE Id = ?`
+	query := `SELECT Id, Username, Nombre, Apellidos, Email, Password FROM users WHERE Id = ?`
 	rows := r.db.FetchRows(query, id)
 	defer rows.Close()
 
 	if rows.Next() {
 		var user entities.User
-		if err := rows.Scan(&user.Id, &user.Nombre, &user.Apellidos, &user.Email, &user.Password); err != nil {
+		if err := rows.Scan(
+			&user.Id,
+			&user.Username,
+			&user.Nombre,
+			&user.Apellidos,
+			&user.Email,
+			&user.Password,
+		); err != nil {
 			return nil, err
 		}
 		return &user, nil
@@ -41,14 +54,21 @@ func (r *UserMySQLRepository) FindById(id int) (*entities.User, error) {
 }
 
 func (r *UserMySQLRepository) FindAll() ([]entities.User, error) {
-	query := `SELECT Id, Nombre, Apellidos, Email, Password FROM users`
+	query := `SELECT Id, Username, Nombre, Apellidos, Email, Password FROM users`
 	rows := r.db.FetchRows(query)
 	defer rows.Close()
 
 	var users []entities.User
 	for rows.Next() {
 		var user entities.User
-		if err := rows.Scan(&user.Id, &user.Nombre, &user.Apellidos, &user.Email, &user.Password); err != nil {
+		if err := rows.Scan(
+			&user.Id,
+			&user.Username,
+			&user.Nombre,
+			&user.Apellidos,
+			&user.Email,
+			&user.Password,
+		); err != nil {
 			return nil, err
 		}
 		users = append(users, user)
@@ -57,13 +77,20 @@ func (r *UserMySQLRepository) FindAll() ([]entities.User, error) {
 }
 
 func (r *UserMySQLRepository) FindByEmail(email string) (*entities.User, error) {
-	query := `SELECT Id, Nombre, Apellidos, Email, Password FROM users WHERE Email = ?`
+	query := `SELECT Id, Username, Nombre, Apellidos, Email, Password FROM users WHERE Email = ?`
 	rows := r.db.FetchRows(query, email)
 	defer rows.Close()
 
 	if rows.Next() {
 		var user entities.User
-		if err := rows.Scan(&user.Id, &user.Nombre, &user.Apellidos, &user.Email, &user.Password); err != nil {
+		if err := rows.Scan(
+			&user.Id,
+			&user.Username,
+			&user.Nombre,
+			&user.Apellidos,
+			&user.Email,
+			&user.Password,
+		); err != nil {
 			return nil, err
 		}
 		return &user, nil
@@ -72,8 +99,15 @@ func (r *UserMySQLRepository) FindByEmail(email string) (*entities.User, error) 
 }
 
 func (r *UserMySQLRepository) Update(user entities.User) error {
-	query := `UPDATE users SET Nombre = ?, Apellidos = ?, Email = ?, Password = ? WHERE Id = ?`
-	_, err := r.db.ExecutePreparedQuery(query, user.Nombre, user.Apellidos, user.Email, user.Password, user.Id)
+	query := `UPDATE users SET Username = ?, Nombre = ?, Apellidos = ?, Email = ?, Password = ? WHERE Id = ?`
+	_, err := r.db.ExecutePreparedQuery(query,
+		user.Username,
+		user.Nombre,
+		user.Apellidos,
+		user.Email,
+		user.Password,
+		user.Id,
+	)
 	return err
 }
 
