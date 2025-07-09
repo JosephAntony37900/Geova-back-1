@@ -8,6 +8,8 @@ import (
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
 	"github.com/JosephAntony37900/Geova-back-1/core"
+	services_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/services/adapters"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,14 +17,18 @@ func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 
 	projectRepo := repo_projects.NewProjectMySQLRepository(conn)
 	
-	
-	createProjectUseCase := app_projects.NewCreateProjectUseCase(projectRepo )
+	cloudinaryAdapter, err := services_projects.NewCloudinaryAdapter()
+	if err != nil {
+		panic("Error al inicializar Cloudinary: " + err.Error())
+	}
+
+	createProjectUseCase := app_projects.NewCreateProjectUseCase(projectRepo,cloudinaryAdapter )
 	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(projectRepo)
 	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(projectRepo)
 	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(projectRepo)
 	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(projectRepo)
 	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(projectRepo)
-	upateProjectUseCase := app_projects.NewUpdateProjectUseCase(projectRepo )
+	upateProjectUseCase := app_projects.NewUpdateProjectUseCase(projectRepo, cloudinaryAdapter)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(projectRepo)
 
 
