@@ -31,6 +31,7 @@ func InitUserDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	upateUserUseCase := app_users.NewUpdateUserUseCase(userRepo, bcryptService)
 	deleteUserUseCase := app_users.NewDeleteUserUseCase(userRepo)
 	loginUserUsecas := app_users.NewLoginUseCase(userRepo, jwtManager, bcryptService )
+	syncUsersUseCase := app_users.NewSyncUsersUseCase(userRepo)
 
 	createUserController := control_users.NewCreateUserController(createUserUseCase)
 	getAllUsersController := control_users.NewGetAllUsersController(getAllUsersUseCase)
@@ -38,7 +39,8 @@ func InitUserDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	updateUserController := control_users.NewUpdateUserController(upateUserUseCase)
 	deleteUserController := control_users.NewDeleteUserController(deleteUserUseCase)
 	loginUserController := control_users.NewLoginUserController(loginUserUsecas)
+	synUserController := control_users.NewSyncUsersController(syncUsersUseCase)
 	
-	routes_users.SetupUserRoutes(engine, createUserController, getAllUsersController, getUserByIdUserController, updateUserController, deleteUserController, loginUserController)
+	routes_users.SetupUserRoutes(engine, createUserController, getAllUsersController, getUserByIdUserController, updateUserController, deleteUserController, loginUserController, synUserController)
 
 }

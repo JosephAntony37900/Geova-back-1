@@ -1,14 +1,15 @@
 package infraestructure
 
-
 import (
-	_"database/sql"
+	_ "database/sql"
+	
+
 	app_projects "github.com/JosephAntony37900/Geova-back-1/Projects/application"
 	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
-	"github.com/JosephAntony37900/Geova-back-1/core"
 	services_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/services/adapters"
+	"github.com/JosephAntony37900/Geova-back-1/core"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,6 +31,7 @@ func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(projectRepo)
 	upateProjectUseCase := app_projects.NewUpdateProjectUseCase(projectRepo, cloudinaryAdapter)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(projectRepo)
+	syncProjectUseCase := app_projects.NewSyncProjectsUseCase(projectRepo)
 
 
 	createProjectController := control_projects.NewCreateProjectController(createProjectUseCase)
@@ -40,9 +42,9 @@ func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	getProjectByDateController := control_projects.NewGetProjectByDateController(getProjectByDateUseCase)
 	updateProjectController := control_projects.NewUpdateProjectController(upateProjectUseCase)
 	deleteProjectController := control_projects.NewDeleteProjectController(deleteProjectUseCase)
-
+	syncProjectController := control_projects.NewSyncProjectsController(syncProjectUseCase)
 
 	
 
-	routes_projects.SetUpProjectsRoutes(engine, createProjectController, getAllProjectController, getByIdProjectController, getProjectByNameController, getProjectByCategoryController, getProjectByDateController,updateProjectController, deleteProjectController )
+	routes_projects.SetUpProjectsRoutes(engine, createProjectController, getAllProjectController, getByIdProjectController, getProjectByNameController, getProjectByCategoryController, getProjectByDateController,updateProjectController, deleteProjectController,syncProjectController )
 }

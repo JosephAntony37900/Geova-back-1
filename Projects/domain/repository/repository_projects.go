@@ -11,4 +11,5 @@ type ProjectRepository interface {
 	FindByName(nombre string) ([]entities.Project, error)
 	FindByCategory(categoria string) ([]entities.Project, error)
 	FindByDate(fecha string) ([]entities.Project, error)
+	SaveManyProjects(projects []entities.Project) error
 }

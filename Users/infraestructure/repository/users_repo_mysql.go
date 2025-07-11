@@ -116,3 +116,13 @@ func (r *UserMySQLRepository) Delete(id int) error {
 	_, err := r.db.ExecutePreparedQuery(query, id)
 	return err
 }
+
+func (r *UserMySQLRepository) SaveManyUsers(users []entities.User) error {
+	for _, u := range users {
+		err := r.Save(u)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

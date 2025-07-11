@@ -115,3 +115,13 @@ func (r *ProjectMySQLRepository) FindByDate(fecha string) ([]entities.Project, e
 	}
 	return projects, nil
 }
+
+func (r *ProjectMySQLRepository) SaveManyProjects(projects []entities.Project) error {
+	for _, p := range projects {
+		err := r.Save(p)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
