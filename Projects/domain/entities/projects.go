@@ -9,4 +9,5 @@ type Project struct {
 	Img string
 	Lat float64
 	Lng float64
+	UserId int
 }

@@ -32,7 +32,7 @@ func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	upateProjectUseCase := app_projects.NewUpdateProjectUseCase(projectRepo, cloudinaryAdapter)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(projectRepo)
 	syncProjectUseCase := app_projects.NewSyncProjectsUseCase(projectRepo)
-
+	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(projectRepo)
 
 	createProjectController := control_projects.NewCreateProjectController(createProjectUseCase)
 	getAllProjectController := control_projects.NewGetAllProjectsController(getAllProjectsUseCase)
@@ -43,8 +43,9 @@ func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
 	updateProjectController := control_projects.NewUpdateProjectController(upateProjectUseCase)
 	deleteProjectController := control_projects.NewDeleteProjectController(deleteProjectUseCase)
 	syncProjectController := control_projects.NewSyncProjectsController(syncProjectUseCase)
+	getProjectsByUserIdController := control_projects.NewGetProjectsByUserIdController(getProjectsByUserIdUseCase)  // NUEVO CONTROLADOR
 
 	
 
-	routes_projects.SetUpProjectsRoutes(engine, createProjectController, getAllProjectController, getByIdProjectController, getProjectByNameController, getProjectByCategoryController, getProjectByDateController,updateProjectController, deleteProjectController,syncProjectController )
+	routes_projects.SetUpProjectsRoutes(engine, createProjectController, getAllProjectController, getByIdProjectController, getProjectByNameController, getProjectByCategoryController, getProjectByDateController,updateProjectController, deleteProjectController,syncProjectController,getProjectsByUserIdController )
 }
