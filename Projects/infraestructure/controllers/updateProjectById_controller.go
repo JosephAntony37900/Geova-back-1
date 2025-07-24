@@ -21,7 +21,6 @@ func NewUpdateProjectController(useCase *application.UpdateProjectUseCase) *Upda
 }
 
 func (c *UpdateProjectController) Execute(ctx *gin.Context) {
-	// Obtener ID del proyecto
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -29,7 +28,6 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 		return
 	}
 
-	// Debug: Ver todos los campos recibidos
 	fmt.Printf("DEBUG UpdateProject - ID: %d\n", id)
 	fmt.Printf("  nombreProyecto: %s\n", ctx.PostForm("nombreProyecto"))
 	fmt.Printf("  fecha: %s\n", ctx.PostForm("fecha"))
@@ -46,8 +44,6 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 	project.Categoria = ctx.PostForm("categoria")
 	project.Descripcion = ctx.PostForm("descripcion")
 	
-
-	// Validaciones básicas
 	if project.NombreProyecto == "" {
 		return
 	}
@@ -56,7 +52,6 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 		return
 	}
 
-	// ⚠️ CRÍTICO: Manejar UserId
 	userIdStr := ctx.PostForm("userId")
 	if userIdStr == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "El userId es obligatorio"})
@@ -76,8 +71,6 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 
 	project.UserId = userId
 	fmt.Printf("DEBUG: UserId asignado correctamente: %d\n", project.UserId)
-
-	// Coordenadas
 	latStr := ctx.PostForm("lat")
 	lngStr := ctx.PostForm("lng")
 
@@ -98,25 +91,22 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 		}
 		project.Lng = lng
 	}
+	var imagePath *string 
+file, err := ctx.FormFile("img")
+if err == nil {
+    filename := "tmp_" + time.Now().Format("20060102150405") + filepath.Ext(file.Filename)
+    path := filepath.Join("tmp", filename)
 
-	// Manejo de imagen (opcional en update)
-	var imagePath string
-	file, err := ctx.FormFile("img")
-	if err == nil {
-		filename := "tmp_" + time.Now().Format("20060102150405") + filepath.Ext(file.Filename)
-		imagePath = filepath.Join("tmp", filename)
+    if err := ctx.SaveUploadedFile(file, path); err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al guardar imagen"})
+        return
+    }
+    defer os.Remove(path)
+    imagePath = &path
+} else {
+    imagePath = nil
+}
 
-		if err := ctx.SaveUploadedFile(file, imagePath); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al guardar imagen"})
-			return
-		}
-		defer os.Remove(imagePath)
-	}
-
-	// Debug final antes del use case
-	fmt.Printf("DEBUG: Proyecto completo antes del use case: %+v\n", project)
-
-	// Ejecutar use case
 	if err := c.useCase.Execute(project, imagePath); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al actualizar proyecto: " + err.Error()})
 		return

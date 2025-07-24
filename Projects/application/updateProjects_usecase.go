@@ -18,13 +18,20 @@ func NewUpdateProjectUseCase(repo repository.ProjectRepository, cloudSrv service
 	}
 }
 
-func (uc *UpdateProjectUseCase) Execute(project entities.Project, imagePath string) error {
-	if imagePath != "" {
-		url, err := uc.cloudSrv.UploadImage(imagePath)
+func (uc *UpdateProjectUseCase) Execute(project entities.Project, imagePath *string) error {
+	current, err := uc.repo.FindById(project.Id)
+	if err != nil {
+		return err
+	}
+	if imagePath != nil && *imagePath != "" {
+		url, err := uc.cloudSrv.UploadImage(*imagePath)
 		if err != nil {
 			return err
 		}
 		project.Img = url
+	} else {
+		project.Img = current.Img
 	}
+
 	return uc.repo.Update(project)
 }
