@@ -33,7 +33,7 @@ func main () {
 	engine.Use(core.SetupCORS())
 
 	user_infra.InitUserDependencies(engine, conn)
-	project_infra.InitprojectDependencies(engine, conn)
+	project_infra.InitProjectDependencies(engine)
 
 	engine.Run("0.0.0.0:8000")
 }
