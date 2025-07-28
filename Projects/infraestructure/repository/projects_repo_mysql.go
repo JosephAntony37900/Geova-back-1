@@ -321,32 +321,7 @@ func (r *ProjectMySQLRepository) addPendingOperation(operation string, projectID
 }
 
 
-func (r *ProjectMySQLRepository) addPendingImageUpload(projectID int, imagePath string) {
-	query := `INSERT INTO pending_image_uploads (project_id, image_path) VALUES (?, ?)`
-	r.localDB.ExecutePreparedQuery(query, projectID, imagePath)
-}
 
-func (r *ProjectMySQLRepository) processPendingImageUploads() {
-	query := `SELECT id, project_id, image_path FROM pending_image_uploads 
-			  WHERE status = 'PENDING' AND retry_count < 3 
-			  ORDER BY timestamp ASC LIMIT 5`
-	
-	rows := r.localDB.FetchRows(query)
-	defer rows.Close()
-	
-	for rows.Next() {
-		var op PendingImageOperation
-		err := rows.Scan(&op.ID, &op.ProjectID, &op.ImagePath)
-		if err != nil {
-			log.Printf("Error scanning pending image operation: %v", err)
-			continue
-		}
-		
-		
-		r.markImageOperationAsCompleted(op.ID)
-		log.Printf("Image upload simulation completed for project %d", op.ProjectID)
-	}
-}
 
 
 
@@ -557,17 +532,3 @@ func (r *ProjectMySQLRepository) deleteFromRemote(id int) bool {
 }
 
 
-func (r *ProjectMySQLRepository) markImageOperationAsCompleted(opID int) {
-	query := `UPDATE pending_image_uploads SET status = 'UPLOADED' WHERE id = ?`
-	r.localDB.ExecutePreparedQuery(query, opID)
-}
-
-func (r *ProjectMySQLRepository) markImageOperationAsFailed(opID int) {
-	query := `UPDATE pending_image_uploads SET status = 'FAILED' WHERE id = ?`
-	r.localDB.ExecutePreparedQuery(query, opID)
-}
-
-func (r *ProjectMySQLRepository) incrementImageRetryCount(opID int) {
-	query := `UPDATE pending_image_uploads SET retry_count = retry_count + 1 WHERE id = ?`
-	r.localDB.ExecutePreparedQuery(query, opID)
-}

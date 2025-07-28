@@ -32,7 +32,7 @@ func main () {
 	engine := gin.Default()
 	engine.Use(core.SetupCORS())
 
-	user_infra.InitUserDependencies(engine, conn)
+	user_infra.InitUserDependencies(engine)
 	project_infra.InitProjectDependencies(engine)
 
 	engine.Run("0.0.0.0:8000")
