@@ -1,120 +1,90 @@
 package infraestructure
 
 import (
-	"database/sql"
-	"fmt"
 	"log"
-	"os"
 
 	app_projects "github.com/JosephAntony37900/Geova-back-1/Projects/application"
 	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
+	domain_projects "github.com/JosephAntony37900/Geova-back-1/Projects/domain/repository"
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
 	services_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/services/adapters"
 	"github.com/JosephAntony37900/Geova-back-1/core"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
-// Función para crear conexión a BD local
-func createLocalDBConnection() *core.Conn_MySQL {
-	err := godotenv.Load()
-	if err != nil {
-		log.Printf("Warning: No se pudo cargar archivo .env para BD local: %v", err)
-	}
-
-	// Variables para BD local (SQLite o MySQL local)
-	localDBHost := os.Getenv("LOCAL_DB_HOST")
-	localDBUser := os.Getenv("LOCAL_DB_USER") 
-	localDBPass := os.Getenv("LOCAL_DB_PASS")
-	localDBSchema := os.Getenv("LOCAL_DB_SCHEMA")
-
-	// Si no están definidas, usar valores por defecto para BD local
-	if localDBHost == "" {
-		localDBHost = "localhost"
-	}
-	if localDBUser == "" {
-		localDBUser = "root"
-	}
-	if localDBSchema == "" {
-		localDBSchema = "geova_local"
-	}
-
-	// Crear conexión local
-	localConn := &core.Conn_MySQL{}
-	
-	// Puedes usar la función GetDBPool existente o crear una específica para local
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s", localDBUser, localDBPass, localDBHost, localDBSchema)
-	db, err := sql.Open("mysql", dsn)
-	
-	if err != nil {
-		log.Printf("Error al conectar a BD local: %v", err)
-		return nil
-	}
-
-	db.SetMaxOpenConns(5) // Menos conexiones para BD local
-	
-	if err := db.Ping(); err != nil {
-		log.Printf("Warning: BD local no disponible: %v", err)
-		db.Close()
-		return nil
-	}
-
-	localConn.DB = db
-	log.Println("Conexión a BD local establecida exitosamente")
-	return localConn
+// ProjectInfrastructure encapsula toda la infraestructura de proyectos
+type ProjectInfrastructure struct {
+	DatabaseManager *core.DatabaseManager
+	ProjectRepo     domain_projects.ProjectRepository
 }
 
-// Función para crear conexión a BD remota
-func createRemoteDBConnection() *core.Conn_MySQL {
-	remoteConn := core.GetDBPool() // Tu función existente para BD remota
+// NewProjectInfrastructure crea e inicializa toda la infraestructura de proyectos
+func NewProjectInfrastructure() *ProjectInfrastructure {
+	// Inicializar el DatabaseManager (maneja ambas conexiones)
+	dbManager := core.NewDatabaseManager()
 	
-	if remoteConn.Err != "" {
-		log.Printf("Warning: BD remota no disponible: %s", remoteConn.Err)
-		return nil
+	// Validar que el DatabaseManager se inicializó correctamente
+	if dbManager == nil {
+		panic("ERROR CRÍTICO: No se pudo inicializar el DatabaseManager")
 	}
 	
-	log.Println("Conexión a BD remota establecida exitosamente")
-	return remoteConn
-}
-
-func InitProjectDependencies(engine *gin.Engine) {
-	// Crear conexiones a ambas bases de datos
-	localConn := createLocalDBConnection()
-	remoteConn := createRemoteDBConnection()
-	
-	// Validar que al menos la BD local esté disponible
-	if localConn == nil {
-		panic("ERROR CRÍTICO: No se puede inicializar sin BD local")
+	// Verificar estado de las conexiones
+	if dbManager.LocalDB == nil || dbManager.LocalDB.DB == nil {
+		panic("ERROR CRÍTICO: No se puede inicializar sin conexión a BD local")
 	}
 	
-	// Si la BD remota no está disponible, continuar solo con local
-	if remoteConn == nil {
+	// Log del estado de las conexiones
+	if dbManager.RemoteDB == nil || dbManager.RemoteDB.DB == nil {
 		log.Println("INFO: Iniciando en modo offline - solo BD local disponible")
+		log.Println("INFO: Los datos se sincronizarán automáticamente cuando la BD remota esté disponible")
+	} else {
+		log.Println("INFO: Iniciando con ambas conexiones disponibles (local y remota)")
 	}
+	
+	// Crear repositorio usando el DatabaseManager
+	projectRepo := repo_projects.NewProjectMySQLRepository(
+		dbManager.LocalDB, 
+		dbManager.RemoteDB,
+	)
+	
+	return &ProjectInfrastructure{
+		DatabaseManager: dbManager,
+		ProjectRepo:     projectRepo,
+	}
+}
 
-	// Crear repositorio con ambas conexiones
-	projectRepo := repo_projects.NewProjectMySQLRepository(localConn, remoteConn)
+// InitProjectDependencies inicializa todas las dependencias y configura las rutas
+func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
+	log.Println("INFO: Inicializando infraestructura de proyectos...")
+	
+	// Crear infraestructura
+	infrastructure := NewProjectInfrastructure()
 	
 	// Inicializar Cloudinary
+	log.Println("INFO: Inicializando servicio de Cloudinary...")
 	cloudinaryAdapter, err := services_projects.NewCloudinaryAdapter()
 	if err != nil {
-		panic("Error al inicializar Cloudinary: " + err.Error())
+		log.Printf("ERROR: No se pudo inicializar Cloudinary: %v", err)
+		panic("Error crítico al inicializar Cloudinary: " + err.Error())
 	}
+	log.Println("INFO: Cloudinary inicializado exitosamente")
 
 	// Crear casos de uso
-	createProjectUseCase := app_projects.NewCreateProjectUseCase(projectRepo, cloudinaryAdapter)
-	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(projectRepo)
-	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(projectRepo)
-	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(projectRepo)
-	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(projectRepo)
-	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(projectRepo)
-	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(projectRepo, cloudinaryAdapter)
-	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(projectRepo)
-	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(projectRepo)
+	log.Println("INFO: Inicializando casos de uso...")
+	createProjectUseCase := app_projects.NewCreateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(infrastructure.ProjectRepo)
+	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(infrastructure.ProjectRepo)
+	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(infrastructure.ProjectRepo)
+	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(infrastructure.ProjectRepo)
+	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(infrastructure.ProjectRepo)
+	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(infrastructure.ProjectRepo)
+	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(infrastructure.ProjectRepo)
 
 	// Crear controladores
+	log.Println("INFO: Inicializando controladores...")
 	createProjectController := control_projects.NewCreateProjectController(createProjectUseCase)
 	getAllProjectController := control_projects.NewGetAllProjectsController(getAllProjectsUseCase)
 	getByIdProjectController := control_projects.NewGetProjectByIdUseController(getProjectByIdUseCase)
@@ -126,6 +96,7 @@ func InitProjectDependencies(engine *gin.Engine) {
 	getProjectsByUserIdController := control_projects.NewGetProjectsByUserIdController(getProjectsByUserIdUseCase)
 
 	// Configurar rutas
+	log.Println("INFO: Configurando rutas de proyectos...")
 	routes_projects.SetUpProjectsRoutes(engine, 
 		createProjectController, 
 		getAllProjectController, 
@@ -136,4 +107,80 @@ func InitProjectDependencies(engine *gin.Engine) {
 		updateProjectController, 
 		deleteProjectController,
 		getProjectsByUserIdController)
+	
+	log.Println("INFO: Infraestructura de proyectos inicializada exitosamente")
+	return infrastructure
+}
+
+// Shutdown cierra todas las conexiones de forma limpia
+func (pi *ProjectInfrastructure) Shutdown() {
+	log.Println("INFO: Cerrando infraestructura de proyectos...")
+	
+	if pi.DatabaseManager != nil {
+		pi.DatabaseManager.Close()
+	}
+	
+	log.Println("INFO: Infraestructura de proyectos cerrada exitosamente")
+}
+
+// GetConnectionStatus retorna el estado de las conexiones
+func (pi *ProjectInfrastructure) GetConnectionStatus() map[string]bool {
+	status := make(map[string]bool)
+	
+	// Verificar conexión local
+	status["local"] = false
+	if pi.DatabaseManager.LocalDB != nil && pi.DatabaseManager.LocalDB.DB != nil {
+		if err := pi.DatabaseManager.LocalDB.DB.Ping(); err == nil {
+			status["local"] = true
+		}
+	}
+	
+	// Verificar conexión remota
+	status["remote"] = false
+	if pi.DatabaseManager.RemoteDB != nil && pi.DatabaseManager.RemoteDB.DB != nil {
+		if err := pi.DatabaseManager.RemoteDB.DB.Ping(); err == nil {
+			status["remote"] = true
+		}
+	}
+	
+	return status
+}
+
+// ReconnectRemoteDB intenta reconectar a la BD remota
+func (pi *ProjectInfrastructure) ReconnectRemoteDB() bool {
+	if pi.DatabaseManager != nil {
+		pi.DatabaseManager.ReconnectRemote()
+		
+		// Verificar si la reconexión fue exitosa
+		if pi.DatabaseManager.RemoteDB != nil && pi.DatabaseManager.RemoteDB.DB != nil {
+			if err := pi.DatabaseManager.RemoteDB.DB.Ping(); err == nil {
+				log.Println("INFO: Reconexión a BD remota exitosa")
+				return true
+			}
+		}
+	}
+	
+	log.Println("WARNING: No se pudo reconectar a la BD remota")
+	return false
+}
+
+// HealthCheck verifica el estado general de la infraestructura
+func (pi *ProjectInfrastructure) HealthCheck() map[string]interface{} {
+	healthStatus := make(map[string]interface{})
+	
+	// Estado de conexiones
+	connectionStatus := pi.GetConnectionStatus()
+	healthStatus["connections"] = connectionStatus
+	
+	// Estado general
+	healthStatus["healthy"] = connectionStatus["local"] // Mínimo requerido es la BD local
+	healthStatus["mode"] = "offline"
+	if connectionStatus["remote"] {
+		healthStatus["mode"] = "online"
+	}
+	
+	// Información adicional
+	healthStatus["sync_enabled"] = connectionStatus["remote"]
+	
+	return healthStatus
 }
