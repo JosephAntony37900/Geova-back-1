@@ -1,4 +1,4 @@
-// application/create_user_usecase.go
+
 package application
 
 import (
@@ -23,43 +23,43 @@ func NewCreateUserUseCase(repo repository.UserRepository, bcrypt services.IBcryp
 }
 
 func (uc *CreateUserUseCase) Execute(user entities.User) (*entities.User, error) {
-	// Validaciones de negocio
+	
 	if err := uc.validateUser(user); err != nil {
 		return nil, fmt.Errorf("validación fallida: %w", err)
 	}
 
-	// Verificar que el email no exista (el repository ya maneja esto, pero es buena práctica validar aquí)
+
 	existingUser, _ := uc.repo.FindByEmail(user.Email)
 	if existingUser != nil {
 		return nil, fmt.Errorf("el email %s ya está registrado", user.Email)
 	}
 
-	// Hashear la contraseña
+	
 	hashedPassword, err := uc.bcrypt.HashPassword(user.Password)
 	if err != nil {
 		return nil, fmt.Errorf("error al procesar la contraseña: %w", err)
 	}
 	user.Password = hashedPassword
 
-	// Normalizar datos
+	
 	user.Email = strings.ToLower(strings.TrimSpace(user.Email))
 	user.Username = strings.TrimSpace(user.Username)
 	user.Nombre = strings.TrimSpace(user.Nombre)
 	user.Apellidos = strings.TrimSpace(user.Apellidos)
 
-	// Guardar usuario (el repository maneja la sincronización automáticamente)
+	
 	if err := uc.repo.Save(user); err != nil {
 		return nil, fmt.Errorf("error al guardar usuario: %w", err)
 	}
 
-	// Buscar el usuario creado para obtener el ID asignado
+	
 	createdUser, err := uc.repo.FindByEmail(user.Email)
 	if err != nil {
-		// Aunque se guardó, no pudimos recuperarlo - esto es raro pero manejable
+		
 		return &user, nil
 	}
 
-	// No devolver la contraseña hasheada en la respuesta
+	
 	createdUser.Password = ""
 	
 	return createdUser, nil

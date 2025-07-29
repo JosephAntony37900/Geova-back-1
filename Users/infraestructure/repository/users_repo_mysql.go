@@ -19,11 +19,11 @@ type UserMySQLRepository struct {
 
 type PendingUserOperation struct {
 	ID        int       `json:"id"`
-	Operation string    `json:"operation"` // CREATE, UPDATE, DELETE
+	Operation string    `json:"operation"` 
 	UserID    int       `json:"user_id"`
-	Data      string    `json:"data"`      // JSON serializado del usuario
+	Data      string    `json:"data"`      
 	Timestamp time.Time `json:"timestamp"`
-	Status    string    `json:"status"`    // PENDING, SYNCED, FAILED
+	Status    string    `json:"status"`    
 }
 
 func NewUserMySQLRepository(localDB *core.Conn_MySQL, remoteDB *core.Conn_MySQL) repository.UserRepository {
@@ -32,13 +32,13 @@ func NewUserMySQLRepository(localDB *core.Conn_MySQL, remoteDB *core.Conn_MySQL)
 		remoteDB: remoteDB,
 	}
 	
-	// Crear tabla de operaciones pendientes
+	
 	repo.createPendingUserOperationsTable()
 	
-	// Iniciar worker de sincronización en background
+	
 	go repo.startUserSyncWorker()
 	
-	// Ejecutar sincronización inicial
+	
 	go repo.initialUserSync()
 	
 	return repo
@@ -88,10 +88,10 @@ func (r *UserMySQLRepository) startUserSyncWorker() {
 	
 	for range ticker.C {
 		if r.isRemoteDBAvailable() {
-			// Procesar operaciones pendientes (local -> remoto)
+			
 			r.processPendingUserOperations()
 			
-			// Cada 2 ciclos (60 segundos), sincronizar desde remoto (remoto -> local)
+			
 			syncFromRemoteCounter++
 			if syncFromRemoteCounter >= 2 {
 				r.syncUsersFromRemoteToLocal()
@@ -101,10 +101,10 @@ func (r *UserMySQLRepository) startUserSyncWorker() {
 	}
 }
 
-//ok
+
 
 func (r *UserMySQLRepository) initialUserSync() {
-	// Esperar un poco antes de iniciar la sincronización
+	
 	time.Sleep(5 * time.Second)
 	
 	if !r.isRemoteDBAvailable() {
@@ -114,10 +114,10 @@ func (r *UserMySQLRepository) initialUserSync() {
 	
 	log.Println("INFO: Iniciando sincronización inicial de usuarios...")
 	
-	// Sincronizar desde remoto a local
+	
 	r.syncUsersFromRemoteToLocal()
 	
-	// Procesar operaciones pendientes
+	
 	r.processPendingUserOperations()
 	
 	log.Println("INFO: Sincronización inicial de usuarios completada")
@@ -126,7 +126,7 @@ func (r *UserMySQLRepository) initialUserSync() {
 func (r *UserMySQLRepository) syncUsersFromRemoteToLocal() {
 	log.Println("INFO: Sincronizando usuarios desde BD remota a local...")
 	
-	// Obtener todos los usuarios de la BD remota
+	
 	remoteQuery := `SELECT Id, Username, Nombre, Apellidos, Email, Password FROM users ORDER BY Id`
 	remoteRows := r.remoteDB.FetchRows(remoteQuery)
 	defer remoteRows.Close()
@@ -149,17 +149,17 @@ func (r *UserMySQLRepository) syncUsersFromRemoteToLocal() {
 			continue
 		}
 		
-		// Verificar si el usuario existe en local
+		
 		localUser, err := r.findByIdLocal(remoteUser.Id)
 		
 		if err != nil {
-			// No existe en local, insertarlo
+			
 			if r.insertUserToLocal(remoteUser) {
 				syncCount++
 				log.Printf("INFO: Usuario %d sincronizado desde remota a local", remoteUser.Id)
 			}
 		} else {
-			// Existe en local, verificar si necesita actualización
+			
 			if r.userNeedsUpdate(*localUser, remoteUser) {
 				if r.updateUserInLocal(remoteUser) {
 					updateCount++
@@ -230,7 +230,7 @@ func (r *UserMySQLRepository) processPendingUserOperations() {
 			continue
 		}
 		
-		// Parsear timestamp
+		
 		if timestampStr != "" {
 			if parsedTime, parseErr := time.Parse("2006-01-02 15:04:05", timestampStr); parseErr == nil {
 				op.Timestamp = parsedTime
@@ -293,16 +293,16 @@ func (r *UserMySQLRepository) addPendingUserOperation(operation string, userID i
 	r.localDB.ExecutePreparedQuery(query, operation, userID, data)
 }
 
-// Implementación de métodos de la interfaz UserRepository
+
 
 func (r *UserMySQLRepository) Save(user entities.User) error {
-	// Verificar si el email ya existe (para evitar duplicados)
+	
 	existingUser, _ := r.FindByEmail(user.Email)
 	if existingUser != nil {
 		return fmt.Errorf("el email %s ya está registrado", user.Email)
 	}
 	
-	// Guardar en BD local
+	
 	localQuery := `INSERT INTO users (Username, Nombre, Apellidos, Email, Password) VALUES (?, ?, ?, ?, ?)`
 	result, err := r.localDB.ExecutePreparedQuery(localQuery, 
 		user.Username, user.Nombre, user.Apellidos, user.Email, user.Password)
@@ -311,12 +311,12 @@ func (r *UserMySQLRepository) Save(user entities.User) error {
 		return fmt.Errorf("error al guardar usuario en BD local: %w", err)
 	}
 	
-	// Obtener el ID generado
+	
 	if lastID, err := result.LastInsertId(); err == nil {
 		user.Id = int(lastID)
 	}
 	
-	// Intentar sincronizar con BD remota
+	
 	if r.isRemoteDBAvailable() {
 		if r.saveToRemote(user) {
 			log.Printf("Usuario %d guardado en ambas BDs exitosamente", user.Id)
@@ -333,19 +333,19 @@ func (r *UserMySQLRepository) Save(user entities.User) error {
 }
 
 func (r *UserMySQLRepository) Update(user entities.User) error {
-	// Verificar que el usuario existe
+	
 	existingUser, err := r.FindById(user.Id)
 	if err != nil || existingUser == nil {
 		return fmt.Errorf("el usuario con ID %d no existe", user.Id)
 	}
 	
-	// Verificar que el email no esté siendo usado por otro usuario
+	
 	userWithEmail, _ := r.FindByEmail(user.Email)
 	if userWithEmail != nil && userWithEmail.Id != user.Id {
 		return fmt.Errorf("el email %s ya está siendo usado por otro usuario", user.Email)
 	}
 	
-	// Actualizar en BD local
+	
 	localQuery := `UPDATE users SET Username = ?, Nombre = ?, Apellidos = ?, Email = ?, Password = ? WHERE Id = ?`
 	_, err = r.localDB.ExecutePreparedQuery(localQuery, 
 		user.Username, user.Nombre, user.Apellidos, user.Email, user.Password, user.Id)
@@ -354,7 +354,7 @@ func (r *UserMySQLRepository) Update(user entities.User) error {
 		return fmt.Errorf("error al actualizar usuario en BD local: %w", err)
 	}
 	
-	// Intentar sincronizar con BD remota
+	
 	if r.isRemoteDBAvailable() {
 		if r.updateInRemote(user) {
 			log.Printf("Usuario %d actualizado en ambas BDs exitosamente", user.Id)
@@ -371,13 +371,13 @@ func (r *UserMySQLRepository) Update(user entities.User) error {
 }
 
 func (r *UserMySQLRepository) Delete(id int) error {
-	// Verificar que el usuario existe
+	
 	existingUser, err := r.FindById(id)
 	if err != nil || existingUser == nil {
 		return fmt.Errorf("el usuario con ID %d no existe", id)
 	}
 	
-	// Eliminar de BD local
+	
 	localQuery := `DELETE FROM users WHERE Id = ?`
 	_, err = r.localDB.ExecutePreparedQuery(localQuery, id)
 	
@@ -385,7 +385,7 @@ func (r *UserMySQLRepository) Delete(id int) error {
 		return fmt.Errorf("error al eliminar usuario de BD local: %w", err)
 	}
 	
-	// Intentar sincronizar con BD remota
+	
 	if r.isRemoteDBAvailable() {
 		if r.deleteFromRemote(id) {
 			log.Printf("Usuario %d eliminado de ambas BDs exitosamente", id)
@@ -436,7 +436,7 @@ func (r *UserMySQLRepository) FindByEmail(email string) (*entities.User, error) 
 	return nil, fmt.Errorf("usuario no encontrado")
 }
 
-// Métodos privados para operaciones remotas
+
 
 func (r *UserMySQLRepository) saveToRemote(user entities.User) bool {
 	query := `INSERT INTO users (Id, Username, Nombre, Apellidos, Email, Password) VALUES (?, ?, ?, ?, ?, ?) 

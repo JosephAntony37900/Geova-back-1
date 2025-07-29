@@ -37,7 +37,7 @@ func (uc *CreateProjectUseCase) hasInternetConnection() bool {
 	return err == nil
 }
 
-// Verificar si el error es relacionado con conectividad
+
 func (uc *CreateProjectUseCase) isConnectivityError(err error) bool {
 	if err == nil {
 		return false

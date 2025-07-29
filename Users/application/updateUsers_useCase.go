@@ -23,18 +23,18 @@ func NewUpdateUserUseCase(repo repository.UserRepository, bcrypt services.IBcryp
 }
 
 func (uc *UpdateUserUseCase) Execute(userUpdate entities.User) (*entities.User, error) {
-	// Verificar que el usuario existe
+	
 	existingUser, err := uc.repo.FindById(userUpdate.Id)
 	if err != nil {
 		return nil, fmt.Errorf("usuario con ID %d no encontrado: %w", userUpdate.Id, err)
 	}
 
-	// Validaciones de negocio
+	
 	if err := uc.validateUpdateData(userUpdate); err != nil {
 		return nil, fmt.Errorf("validación fallida: %w", err)
 	}
 
-	// Verificar que el email no esté siendo usado por otro usuario
+	
 	if userUpdate.Email != existingUser.Email {
 		userWithEmail, _ := uc.repo.FindByEmail(userUpdate.Email)
 		if userWithEmail != nil && userWithEmail.Id != userUpdate.Id {
@@ -42,14 +42,14 @@ func (uc *UpdateUserUseCase) Execute(userUpdate entities.User) (*entities.User, 
 		}
 	}
 
-	// Preparar datos actualizados
+	
 	updatedUser := *existingUser
 	updatedUser.Username = strings.TrimSpace(userUpdate.Username)
 	updatedUser.Nombre = strings.TrimSpace(userUpdate.Nombre)
 	updatedUser.Apellidos = strings.TrimSpace(userUpdate.Apellidos)
 	updatedUser.Email = strings.ToLower(strings.TrimSpace(userUpdate.Email))
 
-	// Solo actualizar contraseña si se proporciona una nueva
+	
 	if userUpdate.Password != "" {
 		hashedPassword, err := uc.bcrypt.HashPassword(userUpdate.Password)
 		if err != nil {
@@ -58,15 +58,15 @@ func (uc *UpdateUserUseCase) Execute(userUpdate entities.User) (*entities.User, 
 		updatedUser.Password = hashedPassword
 	}
 
-	// Actualizar usuario (el repository maneja la sincronización automáticamente)
+	
 	if err := uc.repo.Update(updatedUser); err != nil {
 		return nil, fmt.Errorf("error al actualizar usuario: %w", err)
 	}
 
-	// Obtener usuario actualizado y limpiar contraseña para respuesta
+	
 	finalUser, err := uc.repo.FindById(updatedUser.Id)
 	if err != nil {
-		// Si no podemos recuperarlo, devolver lo que teníamos
+		
 		finalUser = &updatedUser
 	}
 	
@@ -99,7 +99,7 @@ func (uc *UpdateUserUseCase) validateUpdateData(user entities.User) error {
 		return fmt.Errorf("el nombre es requerido")
 	}
 
-	// Solo validar contraseña si se está intentando cambiar
+	
 	if user.Password != "" && len(user.Password) < 6 {
 		return fmt.Errorf("la nueva contraseña debe tener al menos 6 caracteres")
 	}
