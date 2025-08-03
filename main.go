@@ -6,6 +6,7 @@ import (
 
 	"github.com/JosephAntony37900/Geova-back-1/core"
 	user_infra "github.com/JosephAntony37900/Geova-back-1/Users/infraestructure"
+	project_infra "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -31,7 +32,8 @@ func main () {
 	engine := gin.Default()
 	engine.Use(core.SetupCORS())
 
-	user_infra.InitUserDependencies(engine, conn)
+	user_infra.InitUserDependencies(engine)
+	project_infra.InitProjectDependencies(engine)
 
 	engine.Run("0.0.0.0:8000")
 }

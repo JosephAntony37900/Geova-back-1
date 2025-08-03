@@ -24,11 +24,11 @@ func GetDBPool() *Conn_MySQL {
 		log.Fatalf("Error al cargar el archivo .env: %v", err)
 	}
 
-	// Obtener las variables
-	dbHost := os.Getenv("DB_HOST")
-	dbUser := os.Getenv("DB_USER")
-	dbPass := os.Getenv("DB_PASS")
-	dbSchema := os.Getenv("DB_SCHEMA")
+	
+	dbHost := os.Getenv("REMOTE_DB_HOST")
+	dbUser := os.Getenv("REMOTE_DB_USER")
+	dbPass := os.Getenv("REMOTE_DB_PASS")
+	dbSchema := os.Getenv("REMOTE_DB_SCHEMA")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s", dbUser, dbPass, dbHost, dbSchema)
 
@@ -38,10 +38,10 @@ func GetDBPool() *Conn_MySQL {
 		error = fmt.Sprintf("error al abrir la base de datos: %w", err)
 	}
 
-	// Configuración del pool de conexiones
+	
 	db.SetMaxOpenConns(10)
 
-	// Probar la conexión
+	
 	if err := db.Ping(); err != nil {
 		db.Close()
 		error = fmt.Sprintf("error al verificar la conexión a la base de datos: %w", err)
