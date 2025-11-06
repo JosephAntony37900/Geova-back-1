@@ -17,12 +17,6 @@ func main () {
 		log.Fatalf("Error cargando el archivo .env: %v", err)
 	}
 
-	//rabbitmqUser := os.Getenv("RABBITMQ_USER")
-	//rabbitmqPassword := os.Getenv("RABBITMQ_PASSWORD")
-	//rabbitmqHost := os.Getenv("RABBITMQ_HOST")
-	//rabbitmqPort := os.Getenv("RABBITMQ_PORT")
-	//rabbitmqURI := fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitmqUser, rabbitmqPassword, rabbitmqHost, rabbitmqPort)
-
 	conn := core.GetDBPool()
 	if conn.Err != "" {
 		log.Fatalf("Error inicializando la conexión a MySQL: %v", conn.Err)
