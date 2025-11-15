@@ -1,5 +1,5 @@
 package application
-
+/*
 import (
 	"github.com/JosephAntony37900/Geova-back-1/Users/domain/entities"
 	"github.com/JosephAntony37900/Geova-back-1/Users/domain/repository"
@@ -15,4 +15,4 @@ func NewSyncUsersUseCase(repo repository.UserRepository) *SyncUsersUseCase {
 
 func (uc *SyncUsersUseCase) Execute(users []entities.User) error {
 	return uc.repo.SaveManyUsers(users)
-}
+} */

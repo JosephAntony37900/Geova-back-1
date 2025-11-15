@@ -1,5 +1,5 @@
 package controllers
-
+/*
 import (
 	"net/http"
 	"github.com/gin-gonic/gin"
@@ -26,4 +26,4 @@ func (c *SyncUsersController) Execute(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusCreated, gin.H{"message": "Usuarios sincronizados correctamente"})
-}
+} */

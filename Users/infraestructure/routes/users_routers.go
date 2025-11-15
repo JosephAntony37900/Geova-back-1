@@ -13,7 +13,7 @@ func SetupUserRoutes(r *gin.Engine, createUserController *controllers.CreateUser
 		updateUserController *controllers.UpdateUserController,
 		deleteUserController *controllers.DeleteUserController,
 		loginUserController *controllers.LoginUserController,
-		syncronizeUsersController *controllers.SyncUsersController) {
+		) {
 	//jwtSecret := os.Getenv("JWT_SECRET")
 
 	r.POST("/users", createUserController.Execute)
@@ -22,5 +22,5 @@ func SetupUserRoutes(r *gin.Engine, createUserController *controllers.CreateUser
 	r.PUT("/users/:id", updateUserController.Execute)
 	r.DELETE("/users/:id", deleteUserController.Execute)
 	r.POST("/users/login", loginUserController.Execute )
-	r.POST("/sync/users", syncronizeUsersController.Execute)
+	
 }

@@ -1,10 +1,10 @@
 package infraestructure
 
 import (
-	_ "database/sql"
-	
+	"log"
 
 	app_projects "github.com/JosephAntony37900/Geova-back-1/Projects/application"
+	domain_projects "github.com/JosephAntony37900/Geova-back-1/Projects/domain/repository"
 	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
@@ -14,38 +14,97 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func InitprojectDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
+// ProjectInfrastructure encapsula toda la infraestructura de proyectos
+type ProjectInfrastructure struct {
+	DB          *core.Conn_MySQL
+	ProjectRepo domain_projects.ProjectRepository
+}
 
-	projectRepo := repo_projects.NewProjectMySQLRepository(conn)
-	
-	cloudinaryAdapter, err := services_projects.NewCloudinaryAdapter()
-	if err != nil {
-		panic("Error al inicializar Cloudinary: " + err.Error())
+// NewProjectInfrastructure crea e inicializa toda la infraestructura de proyectos
+func NewProjectInfrastructure() *ProjectInfrastructure {
+	// Inicializar conexión a base de datos
+	db := core.NewDatabaseConnection()
+
+	if db == nil || db.DB == nil {
+		panic("ERROR CRÍTICO: No se pudo inicializar la conexión a la base de datos")
 	}
 
-	createProjectUseCase := app_projects.NewCreateProjectUseCase(projectRepo,cloudinaryAdapter )
-	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(projectRepo)
-	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(projectRepo)
-	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(projectRepo)
-	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(projectRepo)
-	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(projectRepo)
-	upateProjectUseCase := app_projects.NewUpdateProjectUseCase(projectRepo, cloudinaryAdapter)
-	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(projectRepo)
-	syncProjectUseCase := app_projects.NewSyncProjectsUseCase(projectRepo)
-	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(projectRepo)
+	log.Println("INFO: Conexión a base de datos establecida")
 
+	// Crear repositorio
+	projectRepo := repo_projects.NewProjectMySQLRepository(db)
+
+	return &ProjectInfrastructure{
+		DB:          db,
+		ProjectRepo: projectRepo,
+	}
+}
+
+// InitProjectDependencies inicializa todas las dependencias y configura las rutas
+func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
+	log.Println("INFO: Inicializando infraestructura de proyectos...")
+
+	// Crear infraestructura
+	infrastructure := NewProjectInfrastructure()
+
+	// Inicializar Cloudinary
+	log.Println("INFO: Inicializando servicio de Cloudinary...")
+	cloudinaryAdapter, err := services_projects.NewCloudinaryAdapter()
+	if err != nil {
+		log.Printf("ERROR: No se pudo inicializar Cloudinary: %v", err)
+		panic("Error crítico al inicializar Cloudinary: " + err.Error())
+	}
+	log.Println("INFO: Cloudinary inicializado exitosamente")
+
+	// Crear casos de uso
+	log.Println("INFO: Inicializando casos de uso...")
+	createProjectUseCase := app_projects.NewCreateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(infrastructure.ProjectRepo)
+	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(infrastructure.ProjectRepo)
+	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(infrastructure.ProjectRepo)
+	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(infrastructure.ProjectRepo)
+	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(infrastructure.ProjectRepo)
+	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(infrastructure.ProjectRepo)
+	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(infrastructure.ProjectRepo)
+
+	// Crear controladores
+	log.Println("INFO: Inicializando controladores...")
 	createProjectController := control_projects.NewCreateProjectController(createProjectUseCase)
 	getAllProjectController := control_projects.NewGetAllProjectsController(getAllProjectsUseCase)
 	getByIdProjectController := control_projects.NewGetProjectByIdUseController(getProjectByIdUseCase)
 	getProjectByNameController := control_projects.NewGetProjectByNameController(getProjectByNameUseCase)
 	getProjectByCategoryController := control_projects.NewGetProjectByCategoryController(getProjectByCategoryUseCase)
 	getProjectByDateController := control_projects.NewGetProjectByDateController(getProjectByDateUseCase)
-	updateProjectController := control_projects.NewUpdateProjectController(upateProjectUseCase)
+	updateProjectController := control_projects.NewUpdateProjectController(updateProjectUseCase)
 	deleteProjectController := control_projects.NewDeleteProjectController(deleteProjectUseCase)
-	syncProjectController := control_projects.NewSyncProjectsController(syncProjectUseCase)
-	getProjectsByUserIdController := control_projects.NewGetProjectsByUserIdController(getProjectsByUserIdUseCase)  // NUEVO CONTROLADOR
+	getProjectsByUserIdController := control_projects.NewGetProjectsByUserIdController(getProjectsByUserIdUseCase)
 
-	
+	// Configurar rutas
+	log.Println("INFO: Configurando rutas de proyectos...")
+	routes_projects.SetUpProjectsRoutes(engine,
+		createProjectController,
+		getAllProjectController,
+		getByIdProjectController,
+		getProjectByNameController,
+		getProjectByCategoryController,
+		getProjectByDateController,
+		updateProjectController,
+		deleteProjectController,
+		getProjectsByUserIdController)
 
-	routes_projects.SetUpProjectsRoutes(engine, createProjectController, getAllProjectController, getByIdProjectController, getProjectByNameController, getProjectByCategoryController, getProjectByDateController,updateProjectController, deleteProjectController,syncProjectController,getProjectsByUserIdController )
+	log.Println("INFO: Infraestructura de proyectos inicializada exitosamente")
+	return infrastructure
+}
+
+// Shutdown cierra todas las conexiones de forma limpia
+func (pi *ProjectInfrastructure) Shutdown() {
+	log.Println("INFO: Cerrando infraestructura de proyectos...")
+
+	if pi.DB != nil && pi.DB.DB != nil {
+		pi.DB.DB.Close()
+		log.Println("INFO: Conexión a base de datos cerrada")
+	}
+
+	log.Println("INFO: Infraestructura de proyectos cerrada exitosamente")
 }
