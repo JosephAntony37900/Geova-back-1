@@ -4,8 +4,8 @@ import (
 	"log"
 
 	app_projects "github.com/JosephAntony37900/Geova-back-1/Projects/application"
-	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 	domain_projects "github.com/JosephAntony37900/Geova-back-1/Projects/domain/repository"
+	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
 	services_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/services/adapters"
@@ -16,52 +16,37 @@ import (
 
 // ProjectInfrastructure encapsula toda la infraestructura de proyectos
 type ProjectInfrastructure struct {
-	DatabaseManager *core.DatabaseManager
-	ProjectRepo     domain_projects.ProjectRepository
+	DB          *core.Conn_MySQL
+	ProjectRepo domain_projects.ProjectRepository
 }
 
 // NewProjectInfrastructure crea e inicializa toda la infraestructura de proyectos
 func NewProjectInfrastructure() *ProjectInfrastructure {
-	// Inicializar el DatabaseManager (maneja ambas conexiones)
-	dbManager := core.NewDatabaseManager()
-	
-	// Validar que el DatabaseManager se inicializó correctamente
-	if dbManager == nil {
-		panic("ERROR CRÍTICO: No se pudo inicializar el DatabaseManager")
+	// Inicializar conexión a base de datos
+	db := core.NewDatabaseConnection()
+
+	if db == nil || db.DB == nil {
+		panic("ERROR CRÍTICO: No se pudo inicializar la conexión a la base de datos")
 	}
-	
-	// Verificar estado de las conexiones
-	if dbManager.LocalDB == nil || dbManager.LocalDB.DB == nil {
-		panic("ERROR CRÍTICO: No se puede inicializar sin conexión a BD local")
-	}
-	
-	// Log del estado de las conexiones
-	if dbManager.RemoteDB == nil || dbManager.RemoteDB.DB == nil {
-		log.Println("INFO: Iniciando en modo offline - solo BD local disponible")
-		log.Println("INFO: Los datos se sincronizarán automáticamente cuando la BD remota esté disponible")
-	} else {
-		log.Println("INFO: Iniciando con ambas conexiones disponibles (local y remota)")
-	}
-	
-	// Crear repositorio usando el DatabaseManager
-	projectRepo := repo_projects.NewProjectMySQLRepository(
-		dbManager.LocalDB, 
-		dbManager.RemoteDB,
-	)
-	
+
+	log.Println("INFO: Conexión a base de datos establecida")
+
+	// Crear repositorio
+	projectRepo := repo_projects.NewProjectMySQLRepository(db)
+
 	return &ProjectInfrastructure{
-		DatabaseManager: dbManager,
-		ProjectRepo:     projectRepo,
+		DB:          db,
+		ProjectRepo: projectRepo,
 	}
 }
 
 // InitProjectDependencies inicializa todas las dependencias y configura las rutas
 func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	log.Println("INFO: Inicializando infraestructura de proyectos...")
-	
+
 	// Crear infraestructura
 	infrastructure := NewProjectInfrastructure()
-	
+
 	// Inicializar Cloudinary
 	log.Println("INFO: Inicializando servicio de Cloudinary...")
 	cloudinaryAdapter, err := services_projects.NewCloudinaryAdapter()
@@ -97,17 +82,17 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 
 	// Configurar rutas
 	log.Println("INFO: Configurando rutas de proyectos...")
-	routes_projects.SetUpProjectsRoutes(engine, 
-		createProjectController, 
-		getAllProjectController, 
-		getByIdProjectController, 
-		getProjectByNameController, 
-		getProjectByCategoryController, 
+	routes_projects.SetUpProjectsRoutes(engine,
+		createProjectController,
+		getAllProjectController,
+		getByIdProjectController,
+		getProjectByNameController,
+		getProjectByCategoryController,
 		getProjectByDateController,
-		updateProjectController, 
+		updateProjectController,
 		deleteProjectController,
 		getProjectsByUserIdController)
-	
+
 	log.Println("INFO: Infraestructura de proyectos inicializada exitosamente")
 	return infrastructure
 }
@@ -115,72 +100,11 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 // Shutdown cierra todas las conexiones de forma limpia
 func (pi *ProjectInfrastructure) Shutdown() {
 	log.Println("INFO: Cerrando infraestructura de proyectos...")
-	
-	if pi.DatabaseManager != nil {
-		pi.DatabaseManager.Close()
+
+	if pi.DB != nil && pi.DB.DB != nil {
+		pi.DB.DB.Close()
+		log.Println("INFO: Conexión a base de datos cerrada")
 	}
-	
+
 	log.Println("INFO: Infraestructura de proyectos cerrada exitosamente")
-}
-
-// GetConnectionStatus retorna el estado de las conexiones
-func (pi *ProjectInfrastructure) GetConnectionStatus() map[string]bool {
-	status := make(map[string]bool)
-	
-	// Verificar conexión local
-	status["local"] = false
-	if pi.DatabaseManager.LocalDB != nil && pi.DatabaseManager.LocalDB.DB != nil {
-		if err := pi.DatabaseManager.LocalDB.DB.Ping(); err == nil {
-			status["local"] = true
-		}
-	}
-	
-	// Verificar conexión remota
-	status["remote"] = false
-	if pi.DatabaseManager.RemoteDB != nil && pi.DatabaseManager.RemoteDB.DB != nil {
-		if err := pi.DatabaseManager.RemoteDB.DB.Ping(); err == nil {
-			status["remote"] = true
-		}
-	}
-	
-	return status
-}
-
-// ReconnectRemoteDB intenta reconectar a la BD remota
-func (pi *ProjectInfrastructure) ReconnectRemoteDB() bool {
-	if pi.DatabaseManager != nil {
-		pi.DatabaseManager.ReconnectRemote()
-		
-		// Verificar si la reconexión fue exitosa
-		if pi.DatabaseManager.RemoteDB != nil && pi.DatabaseManager.RemoteDB.DB != nil {
-			if err := pi.DatabaseManager.RemoteDB.DB.Ping(); err == nil {
-				log.Println("INFO: Reconexión a BD remota exitosa")
-				return true
-			}
-		}
-	}
-	
-	log.Println("WARNING: No se pudo reconectar a la BD remota")
-	return false
-}
-
-// HealthCheck verifica el estado general de la infraestructura
-func (pi *ProjectInfrastructure) HealthCheck() map[string]interface{} {
-	healthStatus := make(map[string]interface{})
-	
-	// Estado de conexiones
-	connectionStatus := pi.GetConnectionStatus()
-	healthStatus["connections"] = connectionStatus
-	
-	// Estado general
-	healthStatus["healthy"] = connectionStatus["local"] // Mínimo requerido es la BD local
-	healthStatus["mode"] = "offline"
-	if connectionStatus["remote"] {
-		healthStatus["mode"] = "online"
-	}
-	
-	// Información adicional
-	healthStatus["sync_enabled"] = connectionStatus["remote"]
-	
-	return healthStatus
 }

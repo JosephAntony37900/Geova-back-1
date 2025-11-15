@@ -19,32 +19,11 @@ type DatabaseConfig struct {
 	Port     string
 }
 
-type DatabaseManager struct {
-	LocalDB  *Conn_MySQL
-	RemoteDB *Conn_MySQL
-}
-
-// Configuración para BD local (Raspberry Pi)
-func GetLocalDatabaseConfig() DatabaseConfig {
-		err := godotenv.Load()
-	if err != nil {
-		log.Printf("Warning: Error al cargar .env para BD local: %v", err)
-	}
-	return DatabaseConfig{
-		
-		Host:     os.Getenv("LOCAL_DB_HOST"),
-		User:     os.Getenv("LOCAL_DB_USER"),      // Cambiar según tu configuración
-		Password: os.Getenv("LOCAL_DB_PASS"),  // Cambiar según tu configuración
-		Schema:   os.Getenv("LOCAL_DB_SCHEMA"),     // Cambiar según tu configuración
-		Port:     os.Getenv("PORT"),
-	}
-}
-
-// Configuración para BD remota (desplegada)
-func GetRemoteDatabaseConfig() DatabaseConfig {
+// Configuración para BD remota
+func GetDatabaseConfig() DatabaseConfig {
 	err := godotenv.Load()
 	if err != nil {
-		log.Printf("Warning: Error al cargar .env para BD remota: %v", err)
+		log.Printf("Warning: Error al cargar .env: %v", err)
 	}
 
 	return DatabaseConfig{
@@ -56,7 +35,7 @@ func GetRemoteDatabaseConfig() DatabaseConfig {
 	}
 }
 
-// Crear conexión a base de datos con configuración específica
+// Crear conexión a base de datos
 func CreateDBConnection(config DatabaseConfig) *Conn_MySQL {
 	port := config.Port
 	if port == "" {
@@ -68,7 +47,7 @@ func CreateDBConnection(config DatabaseConfig) *Conn_MySQL {
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		log.Printf("Error al abrir la base de datos %s: %v", config.Host, err)
+		log.Printf("Error al abrir la base de datos: %v", err)
 		return &Conn_MySQL{DB: nil, Err: fmt.Sprintf("error al abrir la base de datos: %v", err)}
 	}
 
@@ -78,65 +57,23 @@ func CreateDBConnection(config DatabaseConfig) *Conn_MySQL {
 
 	// Probar la conexión
 	if err := db.Ping(); err != nil {
-		log.Printf("Error al verificar la conexión a %s: %v", config.Host, err)
+		log.Printf("Error al verificar la conexión: %v", err)
 		db.Close()
 		return &Conn_MySQL{DB: nil, Err: fmt.Sprintf("error al verificar la conexión: %v", err)}
 	}
 
-	log.Printf("Conexión exitosa a base de datos: %s", config.Host)
+	log.Printf("Conexión exitosa a base de datos")
 	return &Conn_MySQL{DB: db, Err: ""}
 }
 
-// Inicializar manager de base de datos con conexiones local y remota
-func NewDatabaseManager() *DatabaseManager {
-	// Crear conexión local
-	localConfig := GetLocalDatabaseConfig()
-	localDB := CreateDBConnection(localConfig)
+// Inicializar conexión a base de datos
+func NewDatabaseConnection() *Conn_MySQL {
+	config := GetDatabaseConfig()
+	db := CreateDBConnection(config)
 	
-	// Crear conexión remota
-	remoteConfig := GetRemoteDatabaseConfig()
-	remoteDB := CreateDBConnection(remoteConfig)
-	
-	// Verificar que al menos la BD local esté disponible
-	if localDB.DB == nil {
-		log.Fatal("ERROR CRÍTICO: No se puede conectar a la base de datos local")
+	if db.DB == nil {
+		log.Fatal("ERROR CRÍTICO: No se puede conectar a la base de datos")
 	}
 	
-	if remoteDB.DB == nil {
-		log.Printf("WARNING: No se puede conectar a la base de datos remota. Funcionando en modo offline.")
-		remoteDB = nil
-	}
-	
-	return &DatabaseManager{
-		LocalDB:  localDB,
-		RemoteDB: remoteDB,
-	}
-}
-
-// Método para reconectar a la BD remota si está disponible
-func (dm *DatabaseManager) ReconnectRemote() {
-	if dm.RemoteDB != nil && dm.RemoteDB.DB != nil {
-		return // Ya está conectada
-	}
-	
-	remoteConfig := GetRemoteDatabaseConfig()
-	remoteDB := CreateDBConnection(remoteConfig)
-	
-	if remoteDB.DB != nil {
-		dm.RemoteDB = remoteDB
-		log.Println("INFO: Reconexión exitosa a base de datos remota")
-	}
-}
-
-// Método para cerrar conexiones
-func (dm *DatabaseManager) Close() {
-	if dm.LocalDB != nil && dm.LocalDB.DB != nil {
-		dm.LocalDB.DB.Close()
-		log.Println("INFO: Conexión local cerrada")
-	}
-	
-	if dm.RemoteDB != nil && dm.RemoteDB.DB != nil {
-		dm.RemoteDB.DB.Close()
-		log.Println("INFO: Conexión remota cerrada")
-	}
+	return db
 }
