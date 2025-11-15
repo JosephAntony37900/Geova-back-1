@@ -1,6 +1,9 @@
 package repository
 
-import "github.com/JosephAntony37900/Geova-back-1/Projects/domain/entities"
+import (
+
+	"github.com/JosephAntony37900/Geova-back-1/Projects/domain/entities"
+)
 
 type ProjectRepository interface {
 	Save(proyect entities.Project) error
@@ -11,4 +14,5 @@ type ProjectRepository interface {
 	FindByName(nombre string) ([]entities.Project, error)
 	FindByCategory(categoria string) ([]entities.Project, error)
 	FindByDate(fecha string) ([]entities.Project, error)
+	FindByUserId(userId int) ([]entities.Project, error)
 }

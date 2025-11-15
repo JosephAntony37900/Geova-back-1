@@ -10,4 +10,5 @@ type UserRepository interface {
 	Update(user entities.User) error
 	Delete(id int) error
 	
+	
 }

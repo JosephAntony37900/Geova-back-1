@@ -1,44 +1,111 @@
 package infraestructure
 
 import (
-	_"database/sql"
+	"log"
 	"os"
 
 	app_users "github.com/JosephAntony37900/Geova-back-1/Users/application"
+	domain_users "github.com/JosephAntony37900/Geova-back-1/Users/domain/repository"
 	control_users "github.com/JosephAntony37900/Geova-back-1/Users/infraestructure/controllers"
 	repo_users "github.com/JosephAntony37900/Geova-back-1/Users/infraestructure/repository"
 	routes_users "github.com/JosephAntony37900/Geova-back-1/Users/infraestructure/routes"
-	"github.com/JosephAntony37900/Geova-back-1/Users/infraestructure/services"
+	services_users "github.com/JosephAntony37900/Geova-back-1/Users/infraestructure/services"
 	"github.com/JosephAntony37900/Geova-back-1/core"
+
 	"github.com/gin-gonic/gin"
 )
 
-func InitUserDependencies(engine *gin.Engine, conn *core.Conn_MySQL) {
-	// Configuración de servicios
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		panic("JWT_SECRET no está configurado en las variables de entorno")
+type UserInfrastructure struct {
+	DB       *core.Conn_MySQL
+	UserRepo domain_users.UserRepository
+}
+
+func NewUserInfrastructure() *UserInfrastructure {
+	// Inicializar conexión a base de datos
+	db := core.NewDatabaseConnection()
+
+	if db == nil || db.DB == nil {
+		panic("ERROR CRÍTICO: No se pudo inicializar la conexión a la base de datos")
 	}
 
-	bcryptService := service.InitBcryptService()
-    jwtManager := service.InitTokenManager()
+	log.Println("INFO: Conexión a base de datos establecida")
 
-	userRepo := repo_users.NewUserMySQLRepository(conn)
-	//3
-	createUserUseCase := app_users.NewCreateUserUseCase(userRepo, bcryptService)
-	getAllUsersUseCase := app_users.NewGetUsersUseCase(userRepo)
-	getUserByIdUseCase := app_users.NewGetUserByIdUseCase(userRepo)
-	upateUserUseCase := app_users.NewUpdateUserUseCase(userRepo, bcryptService)
-	deleteUserUseCase := app_users.NewDeleteUserUseCase(userRepo)
-	loginUserUsecas := app_users.NewLoginUseCase(userRepo, jwtManager, bcryptService )
+	// Crear repositorio
+	userRepo := repo_users.NewUserMySQLRepository(db)
 
+	return &UserInfrastructure{
+		DB:       db,
+		UserRepo: userRepo,
+	}
+}
+
+func InitUserDependencies(engine *gin.Engine) *UserInfrastructure {
+	log.Println("INFO: Inicializando infraestructura de usuarios...")
+
+	// Crear infraestructura
+	infrastructure := NewUserInfrastructure()
+
+	// Inicializar servicios de seguridad
+	log.Println("INFO: Inicializando servicios de seguridad...")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Println("WARNING: JWT_SECRET no está configurado, usando valor por defecto")
+
+	}
+
+	bcryptService := services_users.InitBcryptService()
+	jwtManager := services_users.InitTokenManager()
+
+	if bcryptService == nil {
+		panic("ERROR CRÍTICO: No se pudo inicializar el servicio de Bcrypt")
+	}
+
+	if jwtManager == nil {
+		panic("ERROR CRÍTICO: No se pudo inicializar el Token Manager")
+	}
+
+	log.Println("INFO: Servicios de seguridad inicializados exitosamente")
+
+	// Crear casos de uso
+	log.Println("INFO: Inicializando casos de uso...")
+	createUserUseCase := app_users.NewCreateUserUseCase(infrastructure.UserRepo, bcryptService)
+	getAllUsersUseCase := app_users.NewGetUsersUseCase(infrastructure.UserRepo)
+	getUserByIdUseCase := app_users.NewGetUserByIdUseCase(infrastructure.UserRepo)
+	updateUserUseCase := app_users.NewUpdateUserUseCase(infrastructure.UserRepo, bcryptService)
+	deleteUserUseCase := app_users.NewDeleteUserUseCase(infrastructure.UserRepo)
+	loginUserUseCase := app_users.NewLoginUseCase(infrastructure.UserRepo, jwtManager, bcryptService)
+
+	// Crear controladores
+	log.Println("INFO: Inicializando controladores...")
 	createUserController := control_users.NewCreateUserController(createUserUseCase)
 	getAllUsersController := control_users.NewGetAllUsersController(getAllUsersUseCase)
-	getUserByIdUserController := control_users.NewGetUserByIdUseController(getUserByIdUseCase)
-	updateUserController := control_users.NewUpdateUserController(upateUserUseCase)
+	getUserByIdController := control_users.NewGetUserByIdUseController(getUserByIdUseCase)
+	updateUserController := control_users.NewUpdateUserController(updateUserUseCase)
 	deleteUserController := control_users.NewDeleteUserController(deleteUserUseCase)
-	loginUserController := control_users.NewLoginUserController(loginUserUsecas)
-	
-	routes_users.SetupUserRoutes(engine, createUserController, getAllUsersController, getUserByIdUserController, updateUserController, deleteUserController, loginUserController)
+	loginUserController := control_users.NewLoginUserController(loginUserUseCase)
 
+	// Configurar rutas
+	log.Println("INFO: Configurando rutas de usuarios...")
+	routes_users.SetupUserRoutes(engine,
+		createUserController,
+		getAllUsersController,
+		getUserByIdController,
+		updateUserController,
+		deleteUserController,
+		loginUserController,
+	)
+
+	log.Println("INFO: Infraestructura de usuarios inicializada exitosamente")
+	return infrastructure
+}
+
+func (ui *UserInfrastructure) Shutdown() {
+	log.Println("INFO: Cerrando infraestructura de usuarios...")
+
+	if ui.DB != nil && ui.DB.DB != nil {
+		ui.DB.DB.Close()
+		log.Println("INFO: Conexión a base de datos cerrada")
+	}
+
+	log.Println("INFO: Infraestructura de usuarios cerrada exitosamente")
 }

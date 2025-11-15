@@ -13,7 +13,8 @@ func SetUpProjectsRoutes (r *gin.Engine, createProjectController *controllers.Cr
 						GetProjectByCategoryController *controllers.GetProjectByCategoryController,
 						getProjetcByDateController * controllers.GetProjectByDateController,
 						updateProjectController *controllers.UpdateProjectController,
-						deleteProjectController *controllers.DeleteProjectController) {
+						deleteProjectController *controllers.DeleteProjectController,
+						getProjectByUserId *controllers.GetProjectsByUserIdController) {
 
 	r.POST("/projects", createProjectController.Execute)
 	r.GET("/projects", getProjectsController.Execute)
@@ -22,5 +23,6 @@ func SetUpProjectsRoutes (r *gin.Engine, createProjectController *controllers.Cr
 	r.GET("/projects/categoria/:categoria", GetProjectByCategoryController.Execute)
 	r.GET("/projects/fecha/:fecha", getProjetcByDateController.Execute)
 	r.PUT("/projects/:id", updateProjectController.Execute)
+	r.GET("/projects/user/:userId", getProjectByUserId.Execute)
 	r.DELETE("/projects/:id", deleteProjectController.Execute)
 }
