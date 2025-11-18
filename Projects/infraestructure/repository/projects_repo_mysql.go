@@ -9,35 +9,71 @@ import (
 )
 
 type ProjectMySQLRepository struct {
-db *core.Conn_MySQL
+	db *core.Conn_MySQL
 }
 
 func NewProjectMySQLRepository(db *core.Conn_MySQL) repository.ProjectRepository {
-return &ProjectMySQLRepository{
-db: db,
-}
-}
-
-func (r *ProjectMySQLRepository) Save(project entities.Project) error {
-query := `INSERT INTO projects (NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-_, err := r.db.ExecutePreparedQuery(query, project.NombreProyecto, project.Fecha, project.Categoria, project.Descripcion, project.Img, project.Lat, project.Lng, project.UserId)
-if err != nil {
-return fmt.Errorf("error al guardar proyecto: %w", err)
-}
-return nil
+	return &ProjectMySQLRepository{
+		db: db,
+	}
 }
 
-func (r *ProjectMySQLRepository) Update(project entities.Project) error {
-existingProject, err := r.FindById(project.Id)
-if err != nil || existingProject == nil {
-return fmt.Errorf("el proyecto con ID %d no existe", project.Id)
+func (r *ProjectMySQLRepository) Save(project *entities.Project) error {
+	query := `INSERT INTO projects (NombreProyecto, Fecha, Categoria, Descripcion, Img, Lat, Lng, user_id) 
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	
+	result, err := r.db.ExecutePreparedQuery(query, 
+		project.NombreProyecto, 
+		project.Fecha, 
+		project.Categoria, 
+		project.Descripcion, 
+		project.Img, 
+		project.Lat, 
+		project.Lng, 
+		project.UserId)
+	
+	if err != nil {
+		return fmt.Errorf("error al guardar proyecto: %w", err)
+	}
+
+	lastInsertID, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("error al obtener ID del proyecto insertado: %w", err)
+	}
+
+	project.Id = int(lastInsertID)
+	
+	fmt.Printf("DEBUG [MySQL]: Proyecto guardado con ID=%d\n", project.Id)
+	return nil
 }
-query := `UPDATE projects SET NombreProyecto = ?, Fecha = ?, Categoria = ?, Descripcion = ?, Img = ?, Lat = ?, Lng = ?, user_id = ? WHERE Id = ?`
-_, err = r.db.ExecutePreparedQuery(query, project.NombreProyecto, project.Fecha, project.Categoria, project.Descripcion, project.Img, project.Lat, project.Lng, project.UserId, project.Id)
-if err != nil {
-return fmt.Errorf("error al actualizar proyecto: %w", err)
-}
-return nil
+
+func (r *ProjectMySQLRepository) Update(project *entities.Project) error {
+	existingProject, err := r.FindById(project.Id)
+	if err != nil || existingProject == nil {
+		return fmt.Errorf("el proyecto con ID %d no existe", project.Id)
+	}
+	
+	query := `UPDATE projects 
+	          SET NombreProyecto = ?, Fecha = ?, Categoria = ?, Descripcion = ?, Img = ?, Lat = ?, Lng = ?, user_id = ? 
+	          WHERE Id = ?`
+	
+	_, err = r.db.ExecutePreparedQuery(query, 
+		project.NombreProyecto, 
+		project.Fecha, 
+		project.Categoria, 
+		project.Descripcion, 
+		project.Img, 
+		project.Lat, 
+		project.Lng, 
+		project.UserId, 
+		project.Id)
+	
+	if err != nil {
+		return fmt.Errorf("error al actualizar proyecto: %w", err)
+	}
+	
+	fmt.Printf("DEBUG [MySQL]: Proyecto ID=%d actualizado exitosamente\n", project.Id)
+	return nil
 }
 
 func (r *ProjectMySQLRepository) Delete(id int) error {

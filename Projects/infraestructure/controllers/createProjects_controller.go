@@ -1,3 +1,4 @@
+// Geova-back-1/Projects/infraestructure/controllers/createProjects_controller.go
 package controllers
 
 import (
@@ -13,7 +14,6 @@ import (
 	"github.com/JosephAntony37900/Geova-back-1/Projects/domain/entities"
 )
 
-// CreateProjectController
 type CreateProjectController struct {
 	useCase *application.CreateProjectUseCase
 }
@@ -23,7 +23,7 @@ func NewCreateProjectController(useCase *application.CreateProjectUseCase) *Crea
 }
 
 func (c *CreateProjectController) Execute(ctx *gin.Context) {
-	
+	/*
 	fmt.Println("DEBUG CreateProject - Campos recibidos:")
 	fmt.Printf("  nombreProyecto: %s\n", ctx.PostForm("nombreProyecto"))
 	fmt.Printf("  fecha: %s\n", ctx.PostForm("fecha"))
@@ -32,16 +32,16 @@ func (c *CreateProjectController) Execute(ctx *gin.Context) {
 	fmt.Printf("  lat: %s\n", ctx.PostForm("lat"))
 	fmt.Printf("  lng: %s\n", ctx.PostForm("lng"))
 	fmt.Printf("  userId: %s\n", ctx.PostForm("userId"))
+	*/
 
 	var project entities.Project
 
-	
 	project.NombreProyecto = ctx.PostForm("nombreProyecto")
 	project.Fecha = ctx.PostForm("fecha")
 	project.Categoria = ctx.PostForm("categoria")
 	project.Descripcion = ctx.PostForm("descripcion")
 
-	
+	// Validaciones
 	if project.NombreProyecto == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "El nombre del proyecto es obligatorio"})
 		return
@@ -51,7 +51,7 @@ func (c *CreateProjectController) Execute(ctx *gin.Context) {
 		return
 	}
 
-	
+	// UserID
 	userIdStr := ctx.PostForm("userId")
 	if userIdStr == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "El userId es obligatorio"})
@@ -72,7 +72,7 @@ func (c *CreateProjectController) Execute(ctx *gin.Context) {
 	project.UserId = userId
 	fmt.Printf("DEBUG: UserId asignado correctamente: %d\n", project.UserId)
 
-	
+	// Coordenadas
 	latStr := ctx.PostForm("lat")
 	lngStr := ctx.PostForm("lng")
 
@@ -94,16 +94,14 @@ func (c *CreateProjectController) Execute(ctx *gin.Context) {
 		project.Lng = lng
 	}
 
-	// Modo offline
+	// Guardar imagen temporal
 	var imagePath string
 	file, err := ctx.FormFile("img")
 	
 	if err != nil {
-		
 		fmt.Println("INFO: No se proporcionó imagen, creando proyecto sin imagen")
 		imagePath = ""
 	} else {
-		
 		filename := "tmp_" + time.Now().Format("20060102150405") + filepath.Ext(file.Filename)
 		imagePath = filepath.Join("tmp", filename)
 
@@ -114,20 +112,15 @@ func (c *CreateProjectController) Execute(ctx *gin.Context) {
 		fmt.Printf("DEBUG: Imagen temporal guardada: %s\n", imagePath)
 	}
 
-	
 	fmt.Printf("DEBUG: Proyecto completo antes del use case: %+v\n", project)
 	fmt.Printf("DEBUG: Ruta de imagen: %s\n", imagePath)
 
-	
 	result, err := c.useCase.Execute(project, imagePath)
-	
-	
-	if imagePath != "" {
-		os.Remove(imagePath)
-		fmt.Printf("DEBUG: Archivo temporal eliminado: %s\n", imagePath)
-	}
 
 	if err != nil {
+		if imagePath != "" {
+			os.Remove(imagePath)
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Error al crear el proyecto: " + err.Error(),
 			"success": false,
@@ -135,16 +128,35 @@ func (c *CreateProjectController) Execute(ctx *gin.Context) {
 		return
 	}
 
+	if imagePath != "" {
+		go func(path string) {
+			time.Sleep(5 * time.Second) 
+			if err := os.Remove(path); err != nil {
+				fmt.Printf("WARNING: No se pudo eliminar archivo temporal %s: %v\n", path, err)
+			} else {
+				fmt.Printf("DEBUG: Archivo temporal eliminado después de 5s: %s\n", path)
+			}
+		}(imagePath)
+	}
+
 	
 	statusCode := http.StatusCreated
+	if result.HasImage && !result.IsOffline {
+		statusCode = http.StatusAccepted // 202: Aceptado, procesando en segundo plano
+	}
+
 	response := gin.H{
 		"success":    result.Success,
 		"message":    result.Message,
+		"project_id": result.ProjectID,
 		"is_offline": result.IsOffline,
 		"has_image":  result.HasImage,
 	}
 
-	
+	if result.HasImage && !result.IsOffline {
+		response["note"] = "La imagen se está subiendo. Puedes consultar el proyecto después para obtener la URL."
+	}
+
 	if result.IsOffline {
 		response["warning"] = "Proyecto creado en modo offline"
 		if result.HasImage {
@@ -152,6 +164,6 @@ func (c *CreateProjectController) Execute(ctx *gin.Context) {
 		}
 	}
 
-	fmt.Printf("DEBUG: Respuesta final: %+v\n", response)
+	fmt.Printf("DEBUG: Respuesta final (HTTP %d): %+v\n", statusCode, response)
 	ctx.JSON(statusCode, response)
 }

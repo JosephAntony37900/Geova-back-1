@@ -21,7 +21,6 @@ func NewUpdateProjectController(useCase *application.UpdateProjectUseCase) *Upda
 }
 
 func (c *UpdateProjectController) Execute(ctx *gin.Context) {
-	// Obtener ID del proyecto
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -29,7 +28,7 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 		return
 	}
 
-	// Debug: Ver todos los campos recibidos
+	/*
 	fmt.Printf("DEBUG UpdateProject - ID: %d\n", id)
 	fmt.Printf("  nombreProyecto: %s\n", ctx.PostForm("nombreProyecto"))
 	fmt.Printf("  fecha: %s\n", ctx.PostForm("fecha"))
@@ -38,6 +37,7 @@ func (c *UpdateProjectController) Execute(ctx *gin.Context) {
 	fmt.Printf("  lat: %s\n", ctx.PostForm("lat"))
 	fmt.Printf("  lng: %s\n", ctx.PostForm("lng"))
 	fmt.Printf("  userId: %s\n", ctx.PostForm("userId"))
+	*/
 
 	var project entities.Project
 	project.Id = id
