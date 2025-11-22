@@ -3,7 +3,6 @@ package application
 import (
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/JosephAntony37900/Geova-back-1/Projects/domain/entities"
@@ -12,62 +11,40 @@ import (
 )
 
 type UpdateProjectUseCase struct {
-	repo     repository.ProjectRepository
-	cloudSrv services.ICloudinaryService
+	repo           repository.ProjectRepository
+	imageUploadSvc *services.ImageUploadWorkerService 
 }
 
-type UpdateResult struct {
-	ImageURL string
-	Error    error
-}
-
-func NewUpdateProjectUseCase(repo repository.ProjectRepository, cloudSrv services.ICloudinaryService) *UpdateProjectUseCase {
+func NewUpdateProjectUseCase(
+	repo repository.ProjectRepository,
+	imageUploadSvc *services.ImageUploadWorkerService,
+) *UpdateProjectUseCase {
 	return &UpdateProjectUseCase{
-		repo:     repo,
-		cloudSrv: cloudSrv,
+		repo:           repo,
+		imageUploadSvc: imageUploadSvc,
 	}
 }
 
 func (uc *UpdateProjectUseCase) Execute(project entities.Project, imagePath string) error {
 	if imagePath != "" {
-		resultChan := make(chan UpdateResult, 1)
+		log.Printf("INFO: [Update] Procesando imagen para proyecto ID=%d", project.Id)
 		
-		// WaitGroup para asegurar que la goroutine termine
-		var wg sync.WaitGroup
-		wg.Add(1)
+		result, err := uc.imageUploadSvc.SubmitUploadJobSync(
+			project.Id,
+			imagePath,
+			30*time.Second, 
+		)
 
-		// Goroutine para subir imagen
-		go func() {
-			defer wg.Done()
-			
-			log.Printf("INFO: [Update] Iniciando subida de imagen para proyecto ID=%d", project.Id)
-			startTime := time.Now()
-			
-			url, err := uc.cloudSrv.UploadImage(imagePath)
-			
-			elapsed := time.Since(startTime)
-			if err != nil {
-				log.Printf("ERROR: [Update] Error al subir imagen (tiempo: %v): %v", elapsed, err)
-				resultChan <- UpdateResult{Error: err}
-				return
-			}
-			
-			log.Printf("SUCCESS: [Update] Imagen subida en %v: %s", elapsed, url)
-			resultChan <- UpdateResult{ImageURL: url, Error: nil}
-		}()
-
-		select {
-		case result := <-resultChan:
-			if result.Error != nil {
-				return fmt.Errorf("error al subir imagen: %w", result.Error)
-			}
-			project.Img = result.ImageURL
-		case <-time.After(30 * time.Second):
-			return fmt.Errorf("timeout al subir imagen a Cloudinary")
+		if err != nil {
+			return fmt.Errorf("error al subir imagen: %w", err)
 		}
 
-		wg.Wait()
-		close(resultChan)
+		if result.Error != nil {
+			return fmt.Errorf("error al subir imagen: %w", result.Error)
+		}
+
+		log.Printf("SUCCESS: [Update] Imagen subida en %v: %s", result.Duration, result.ImageURL)
+		project.Img = result.ImageURL
 	}
 
 	log.Printf("INFO: [Update] Actualizando proyecto ID=%d en base de datos", project.Id)

@@ -1,3 +1,4 @@
+// Geova-back-1/Projects/infraestructure/projects_dependencies.go
 package infraestructure
 
 import (
@@ -5,6 +6,7 @@ import (
 
 	app_projects "github.com/JosephAntony37900/Geova-back-1/Projects/application"
 	domain_projects "github.com/JosephAntony37900/Geova-back-1/Projects/domain/repository"
+	domain_services "github.com/JosephAntony37900/Geova-back-1/Projects/domain/services"
 	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
@@ -14,15 +16,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ProjectInfrastructure encapsula toda la infraestructura de proyectos
 type ProjectInfrastructure struct {
-	DB          *core.Conn_MySQL
-	ProjectRepo domain_projects.ProjectRepository
+	DB                 *core.Conn_MySQL
+	ProjectRepo        domain_projects.ProjectRepository
+	ImageUploadService *domain_services.ImageUploadWorkerService // ✅ Worker service
 }
 
-// NewProjectInfrastructure crea e inicializa toda la infraestructura de proyectos
 func NewProjectInfrastructure() *ProjectInfrastructure {
-	// Inicializar conexión a base de datos
 	db := core.NewDatabaseConnection()
 
 	if db == nil || db.DB == nil {
@@ -31,7 +31,6 @@ func NewProjectInfrastructure() *ProjectInfrastructure {
 
 	log.Println("INFO: Conexión a base de datos establecida")
 
-	// Crear repositorio
 	projectRepo := repo_projects.NewProjectMySQLRepository(db)
 
 	return &ProjectInfrastructure{
@@ -40,11 +39,10 @@ func NewProjectInfrastructure() *ProjectInfrastructure {
 	}
 }
 
-// InitProjectDependencies inicializa todas las dependencias y configura las rutas
 func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	log.Println("INFO: Inicializando infraestructura de proyectos...")
 
-	// Crear infraestructura
+	// Crear infraestructura base
 	infrastructure := NewProjectInfrastructure()
 
 	// Inicializar Cloudinary
@@ -54,17 +52,31 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 		log.Printf("ERROR: No se pudo inicializar Cloudinary: %v", err)
 		panic("Error crítico al inicializar Cloudinary: " + err.Error())
 	}
-	log.Println("INFO: Cloudinary inicializado exitosamente")
+	log.Println("Cloudinary inicializado exitosamente")
 
-	// Crear casos de uso
+	log.Println("INFO: Inicializando Worker Service de imágenes...")
+	imageUploadService := domain_services.NewImageUploadWorkerService(
+		cloudinaryAdapter,
+		infrastructure.ProjectRepo,
+		3, 
+	)
+	infrastructure.ImageUploadService = imageUploadService
+	log.Println("Worker Service inicializado con 3 workers")
+
 	log.Println("INFO: Inicializando casos de uso...")
-	createProjectUseCase := app_projects.NewCreateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	createProjectUseCase := app_projects.NewCreateProjectUseCase(
+		infrastructure.ProjectRepo,
+		imageUploadService, // 
+	)
 	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(infrastructure.ProjectRepo)
 	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(infrastructure.ProjectRepo)
 	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(infrastructure.ProjectRepo)
 	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(infrastructure.ProjectRepo)
 	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(infrastructure.ProjectRepo)
-	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(
+		infrastructure.ProjectRepo,
+		imageUploadService, //Inyectar worker service
+	)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(infrastructure.ProjectRepo)
 	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(infrastructure.ProjectRepo)
 
@@ -93,18 +105,19 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 		deleteProjectController,
 		getProjectsByUserIdController)
 
-	log.Println("INFO: Infraestructura de proyectos inicializada exitosamente")
 	return infrastructure
 }
 
 // Shutdown cierra todas las conexiones de forma limpia
 func (pi *ProjectInfrastructure) Shutdown() {
-	log.Println("INFO: Cerrando infraestructura de proyectos...")
+
+	if pi.ImageUploadService != nil {
+		pi.ImageUploadService.Shutdown()
+	}
 
 	if pi.DB != nil && pi.DB.DB != nil {
 		pi.DB.DB.Close()
 		log.Println("INFO: Conexión a base de datos cerrada")
 	}
 
-	log.Println("INFO: Infraestructura de proyectos cerrada exitosamente")
 }
