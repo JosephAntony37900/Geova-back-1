@@ -68,23 +68,30 @@ func (uc *CreateProjectUseCase) Execute(project entities.Project, imagePath stri
 
 	hasInternet := uc.hasInternetConnection()
 
+	// Inicializar campo Img
+	project.Img = ""
+
+	// Guardar proyecto en BD primero para obtener el ID
+	if err := uc.db.Save(project); err != nil {
+		log.Printf("ERROR: Error al guardar proyecto en BD: %v", err)
+		return result, err
+	}
+
+	// Ahora que tenemos el ID, procesar la imagen si existe
 	if imagePath != "" {
 		if hasInternet {
 			// Conectividad disponible, encolar trabajo de subida de imagen
 			log.Println("INFO: Conectividad disponible, encolando trabajo de subida de imagen...")
 
-			// Usar SubmitUploadJob (asíncrono) - el proyecto se guarda sin esperar
+			// Usar SubmitUploadJob (asíncrono) - el proyecto ya está guardado
 			err := uc.imageUploadSvc.SubmitUploadJob(project.Id, imagePath)
 			if err != nil {
 				// Si falla el encolamiento (servicio cerrado, cola llena), tratar como offline
 				log.Printf("WARNING: No se pudo encolar trabajo de subida: %v", err)
 				result.IsOffline = true
-				project.Img = ""
 				result.Message = "Proyecto creado sin imagen - servicio de subida no disponible. Se intentará más tarde."
 			} else {
-				// Trabajo encolado exitosamente, pero aún no tenemos URL
-				// Guardar proyecto sin imagen por ahora
-				project.Img = ""
+				// Trabajo encolado exitosamente, imagen se subirá en background
 				result.Message = "Proyecto creado exitosamente - imagen en proceso de subida"
 				log.Printf("INFO: Trabajo de subida encolado para proyecto %d", project.Id)
 			}
@@ -92,20 +99,12 @@ func (uc *CreateProjectUseCase) Execute(project entities.Project, imagePath stri
 			// Sin conectividad
 			log.Println("WARNING: Sin conectividad a internet, creando proyecto sin imagen")
 			result.IsOffline = true
-			project.Img = ""
 			result.Message = "Proyecto creado sin imagen debido a falta de conexión a internet."
 		}
 	} else {
 		// Sin imagen
-		project.Img = ""
 		result.Message = "Proyecto creado exitosamente sin imagen"
 		log.Println("INFO: Proyecto creado sin imagen (no se proporcionó archivo)")
-	}
-
-	// Guardar proyecto en BD
-	if err := uc.db.Save(project); err != nil {
-		log.Printf("ERROR: Error al guardar proyecto en BD: %v", err)
-		return result, err
 	}
 
 	result.Success = true

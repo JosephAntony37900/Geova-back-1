@@ -31,7 +31,7 @@ type ImageUploadWorkerService struct {
 	resultQueue chan ImageUploadResult
 	shutdown    chan struct{}
 	wg          sync.WaitGroup
-	mu          sync.Mutex // Protege acceso a repo si no es thread-safe
+	resultsWg   sync.WaitGroup // WaitGroup para processResults
 	numWorkers  int
 }
 
@@ -59,6 +59,7 @@ func NewImageUploadWorkerService(cloudSrv ICloudinaryService, numWorkers int, qu
 	}
 
 	// Iniciar procesador de resultados para métricas
+	service.resultsWg.Add(1)
 	go service.processResults()
 
 	log.Printf("ImageUploadWorkerService iniciado con %d workers y cola de %d", numWorkers, queueSize)
@@ -132,6 +133,7 @@ func (s *ImageUploadWorkerService) processJob(workerID int, job ImageUploadJob) 
 
 // processResults procesa resultados para métricas y logging
 func (s *ImageUploadWorkerService) processResults() {
+	defer s.resultsWg.Done()
 	log.Println("processResults: iniciado")
 	successCount := 0
 	errorCount := 0
@@ -239,8 +241,12 @@ func (s *ImageUploadWorkerService) Shutdown() {
 	s.wg.Wait()
 	log.Println("ImageUploadWorkerService: todos los workers han terminado")
 
-	// Ahora es seguro cerrar resultQueue
+	// Ahora es seguro cerrar resultQueue (ya no hay workers escribiendo)
 	close(s.resultQueue)
+
+	// Esperar a que processResults termine de procesar resultados pendientes
+	s.resultsWg.Wait()
+	log.Println("ImageUploadWorkerService: procesador de resultados terminado")
 
 	log.Println("ImageUploadWorkerService: shutdown completado")
 }
