@@ -1,1 +1,9 @@
 .env
+Geova-back-1
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out

@@ -66,7 +66,8 @@ func (s *ImageUploadWorkerService) Start() {
 		go s.worker(i + 1)
 	}
 
-	// Start metrics processor
+	// Start metrics processor (tracked by WaitGroup for safe shutdown)
+	s.wg.Add(1)
 	go s.processResults()
 }
 
@@ -79,19 +80,14 @@ func (s *ImageUploadWorkerService) worker(id int) {
 		case <-s.shutdown:
 			log.Printf("Worker #%d detenido", id)
 			return
-		default:
-			// Non-blocking check for shutdown, then try to read job
+		case job, ok := <-s.jobQueue:
+			if !ok {
+				// Channel closed, exit worker
+				log.Printf("Worker #%d detenido (canal cerrado)", id)
+				return
+			}
+			s.processJob(id, job)
 		}
-
-		// Safe read from jobQueue with ok check
-		job, ok := <-s.jobQueue
-		if !ok {
-			// Channel closed, exit worker
-			log.Printf("Worker #%d detenido (canal cerrado)", id)
-			return
-		}
-
-		s.processJob(id, job)
 	}
 }
 
@@ -214,6 +210,8 @@ func (s *ImageUploadWorkerService) sendResult(job ImageUploadJob, result ImageUp
 }
 
 func (s *ImageUploadWorkerService) processResults() {
+	defer s.wg.Done()
+
 	for result := range s.resultQueue {
 		if result.Error != nil {
 			log.Printf("METRICS: Subida fallida - Proyecto=%d, Error=%v, Duración=%v",
@@ -223,6 +221,7 @@ func (s *ImageUploadWorkerService) processResults() {
 				result.ProjectID, result.Duration)
 		}
 	}
+	log.Println("METRICS: processResults finalizado")
 }
 
 func (s *ImageUploadWorkerService) SubmitUploadJob(projectID int, imagePath string) error {
