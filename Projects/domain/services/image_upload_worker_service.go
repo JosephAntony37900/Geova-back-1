@@ -126,9 +126,8 @@ func (s *ImageUploadWorkerService) processJob(workerID int, job ImageUploadJob) 
 // SubmitUploadJob encola un trabajo de forma asíncrona
 func (s *ImageUploadWorkerService) SubmitUploadJob(localPath string) error {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	if s.isShutdown {
+		s.mu.RUnlock()
 		return fmt.Errorf("servicio en shutdown, no se aceptan nuevos trabajos")
 	}
 
@@ -139,9 +138,11 @@ func (s *ImageUploadWorkerService) SubmitUploadJob(localPath string) error {
 
 	select {
 	case s.jobQueue <- job:
+		s.mu.RUnlock()
 		log.Printf("INFO: Trabajo encolado para: %s", localPath)
 		return nil
 	default:
+		s.mu.RUnlock()
 		return fmt.Errorf("cola de trabajos llena, intente más tarde")
 	}
 }
@@ -149,9 +150,8 @@ func (s *ImageUploadWorkerService) SubmitUploadJob(localPath string) error {
 // SubmitUploadJobSync encola un trabajo y espera el resultado de forma síncrona
 func (s *ImageUploadWorkerService) SubmitUploadJobSync(localPath string, timeout time.Duration) (string, error) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	if s.isShutdown {
+		s.mu.RUnlock()
 		return "", fmt.Errorf("servicio en shutdown, no se aceptan nuevos trabajos")
 	}
 
@@ -163,11 +163,13 @@ func (s *ImageUploadWorkerService) SubmitUploadJobSync(localPath string, timeout
 		Reply:     reply,
 	}
 
-	// Encolar el trabajo
+	// Encolar el trabajo mientras mantenemos el lock
 	select {
 	case s.jobQueue <- job:
+		s.mu.RUnlock()
 		log.Printf("INFO: Trabajo síncrono encolado para: %s", localPath)
 	default:
+		s.mu.RUnlock()
 		return "", fmt.Errorf("cola de trabajos llena, intente más tarde")
 	}
 
@@ -179,6 +181,9 @@ func (s *ImageUploadWorkerService) SubmitUploadJobSync(localPath string, timeout
 		}
 		return result.URL, nil
 	case <-time.After(timeout):
+		// En caso de timeout, el resultado podría aún llegar al canal buffered
+		// pero no causará leak porque el buffer es de tamaño 1
+		log.Printf("WARNING: Timeout esperando resultado de subida para: %s", localPath)
 		return "", fmt.Errorf("timeout esperando resultado de subida de imagen")
 	}
 }
@@ -201,13 +206,14 @@ func (s *ImageUploadWorkerService) Shutdown() {
 
 	log.Println("INFO: Iniciando shutdown de ImageUploadWorkerService...")
 
-	// 1. Cerrar shutdown para señalizar a los workers
+	// 1. Cerrar shutdown para señalizar a los workers que deben terminar
 	close(s.shutdown)
 
 	// 2. Cerrar jobQueue para que workers terminen cuando vacíen la cola
+	// Los workers detectarán esto en su select y terminarán ordenadamente
 	close(s.jobQueue)
 
-	// 3. Esperar a que todos los workers terminen
+	// 3. Esperar a que todos los workers terminen procesando trabajos pendientes
 	log.Println("INFO: Esperando a que workers terminen...")
 	s.wg.Wait()
 
