@@ -5,6 +5,7 @@ import (
 
 	app_projects "github.com/JosephAntony37900/Geova-back-1/Projects/application"
 	domain_projects "github.com/JosephAntony37900/Geova-back-1/Projects/domain/repository"
+	domain_services "github.com/JosephAntony37900/Geova-back-1/Projects/domain/services"
 	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
@@ -16,8 +17,9 @@ import (
 
 // ProjectInfrastructure encapsula toda la infraestructura de proyectos
 type ProjectInfrastructure struct {
-	DB          *core.Conn_MySQL
-	ProjectRepo domain_projects.ProjectRepository
+	DB                 *core.Conn_MySQL
+	ProjectRepo        domain_projects.ProjectRepository
+	ImageUploadService *domain_services.ImageUploadWorkerService
 }
 
 // NewProjectInfrastructure crea e inicializa toda la infraestructura de proyectos
@@ -56,15 +58,31 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	}
 	log.Println("INFO: Cloudinary inicializado exitosamente")
 
+	// Inicializar Worker Service de imágenes
+	log.Println("INFO: Inicializando Worker Service de imágenes...")
+	imageUploadService := domain_services.NewImageUploadWorkerService(
+		cloudinaryAdapter,
+		infrastructure.ProjectRepo,
+		3,
+	)
+	infrastructure.ImageUploadService = imageUploadService
+	log.Println("INFO: Worker Service inicializado con 3 workers")
+
 	// Crear casos de uso
 	log.Println("INFO: Inicializando casos de uso...")
-	createProjectUseCase := app_projects.NewCreateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	createProjectUseCase := app_projects.NewCreateProjectUseCase(
+		infrastructure.ProjectRepo,
+		imageUploadService,
+	)
 	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(infrastructure.ProjectRepo)
 	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(infrastructure.ProjectRepo)
 	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(infrastructure.ProjectRepo)
 	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(infrastructure.ProjectRepo)
 	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(infrastructure.ProjectRepo)
-	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(
+		infrastructure.ProjectRepo,
+		imageUploadService,
+	)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(infrastructure.ProjectRepo)
 	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(infrastructure.ProjectRepo)
 
@@ -100,6 +118,11 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 // Shutdown cierra todas las conexiones de forma limpia
 func (pi *ProjectInfrastructure) Shutdown() {
 	log.Println("INFO: Cerrando infraestructura de proyectos...")
+
+	// Shutdown worker service first
+	if pi.ImageUploadService != nil {
+		pi.ImageUploadService.Shutdown()
+	}
 
 	if pi.DB != nil && pi.DB.DB != nil {
 		pi.DB.DB.Close()
