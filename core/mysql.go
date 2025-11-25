@@ -21,16 +21,16 @@ type Conn_MySQL struct {
 func ConfigureDBPool(db *sql.DB) {
 	// Máximo de conexiones abiertas simultáneas
 	
-	db.SetMaxOpenConns(100)
+	db.SetMaxOpenConns(50)
 	
 	// Conexiones inactivas mantenidas en el pool
-	db.SetMaxIdleConns(25)
+	db.SetMaxIdleConns(30)
 	
 	// Tiempo máximo de vida de una conexión
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxLifetime(3* time.Minute)
 	
 	// Tiempo máximo que una conexión puede estar inactiva
-	db.SetConnMaxIdleTime(10 * time.Minute)
+	db.SetConnMaxIdleTime(1* time.Minute)
 	
 	log.Println("INFO: Pool de conexiones configurado - MaxOpen:100, MaxIdle:25, MaxLifetime:5m, MaxIdleTime:10m")
 }
