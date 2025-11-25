@@ -2,13 +2,13 @@
 package core
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
-	"database/sql"
 
-	"github.com/joho/godotenv"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 type DatabaseConfig struct {
@@ -51,11 +51,9 @@ func CreateDBConnection(config DatabaseConfig) *Conn_MySQL {
 		return &Conn_MySQL{DB: nil, Err: fmt.Sprintf("error al abrir la base de datos: %v", err)}
 	}
 
-	// Configuración del pool de conexiones
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
+	//Configuracion del pool de conexiones:
+	ConfigureDBPool(db)
 
-	// Probar la conexión
 	if err := db.Ping(); err != nil {
 		log.Printf("Error al verificar la conexión: %v", err)
 		db.Close()
