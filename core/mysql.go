@@ -32,11 +32,11 @@ func ConfigureDBPool(db *sql.DB) {
 	// Tiempo máximo que una conexión puede estar inactiva
 	db.SetConnMaxIdleTime(1* time.Minute)
 	
-	log.Println("INFO: Pool de conexiones configurado - MaxOpen:100, MaxIdle:25, MaxLifetime:5m, MaxIdleTime:10m")
+	log.Println("INFO: Pool de conexiones configurado - MaxOpen:50, MaxIdle:30, MaxLifetime:3m, MaxIdleTime:1m")
 }
 
 func GetDBPool() *Conn_MySQL {
-	error := ""
+	errorMsg := ""
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error al cargar el archivo .env: %v", err)
@@ -51,19 +51,19 @@ func GetDBPool() *Conn_MySQL {
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		error = fmt.Sprintf("error al abrir la base de datos: %v", err)
-		return &Conn_MySQL{DB: nil, Err: error}
+		errorMsg = fmt.Sprintf("error al abrir la base de datos: %v", err)
+		return &Conn_MySQL{DB: nil, Err: errorMsg}
 	}
 
 	ConfigureDBPool(db)
 
 	if err := db.Ping(); err != nil {
 		db.Close()
-		error = fmt.Sprintf("error al verificar la conexión a la base de datos: %v", err)
-		return &Conn_MySQL{DB: nil, Err: error}
+		errorMsg = fmt.Sprintf("error al verificar la conexión a la base de datos: %v", err)
+		return &Conn_MySQL{DB: nil, Err: errorMsg}
 	}
 
-	return &Conn_MySQL{DB: db, Err: error}
+	return &Conn_MySQL{DB: db, Err: errorMsg}
 }
 
 func (conn *Conn_MySQL) ExecutePreparedQuery(query string, values ...interface{}) (sql.Result, error) {
