@@ -1,4 +1,3 @@
-// geova-back-1/Users/application/loginUsers_useCase.go
 package application
 
 import (
@@ -133,7 +132,7 @@ func (lu *LoginUseCase) validatePassword(password string) error {
 	}
 
 	if !hasSpecial {
-		return fmt.Errorf("la contraseña debe contener al menos un carácter especial (!@#$%^&*()_+-=[]{}|;:,.<>?/)")
+		return fmt.Errorf("la contraseña debe contener al menos un carácter especial (!@#$%%^&*()_+-=[]{}|;:,.<>?/)")
 	}
 
 	return nil
