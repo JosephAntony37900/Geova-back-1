@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"fmt"
+	"regexp"
+	"unicode"
 	"github.com/gin-gonic/gin"
 	"github.com/JosephAntony37900/Geova-back-1/Users/application"
 	"github.com/JosephAntony37900/Geova-back-1/Users/domain/entities"
@@ -28,7 +30,7 @@ func (c *CreateUserController) Execute(ctx *gin.Context) {
 		return
 	}
 
-	// Validaciones básicas
+	// Validaciones mejoradas
 	if err := c.validateUserInput(user); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Datos de usuario inválidos",
@@ -75,30 +77,114 @@ func (c *CreateUserController) Execute(ctx *gin.Context) {
 			"nombre": createdUser.Nombre,
 			"apellidos": createdUser.Apellidos,
 		},
-		"sync_status": "local_saved", // Indica que se guardó localmente
+		"sync_status": "local_saved",
 	})
 }
 
 func (c *CreateUserController) validateUserInput(user entities.User) error {
+	// Validar username
 	if strings.TrimSpace(user.Username) == "" {
 		return fmt.Errorf("el nombre de usuario es requerido")
 	}
 	
-	if strings.TrimSpace(user.Email) == "" {
-		return fmt.Errorf("el email es requerido")
+	// Validar email (formato y requerido)
+	if err := c.validateEmail(user.Email); err != nil {
+		return err
 	}
 	
-	if strings.TrimSpace(user.Password) == "" {
-		return fmt.Errorf("la contraseña es requerida")
+	// Validar contraseña con los mismos requisitos del login
+	if err := c.validatePassword(user.Password); err != nil {
+		return err
 	}
 	
-	if len(user.Password) < 6 {
-		return fmt.Errorf("la contraseña debe tener al menos 6 caracteres")
-	}
-	
+	// Validar nombre
 	if strings.TrimSpace(user.Nombre) == "" {
 		return fmt.Errorf("el nombre es requerido")
 	}
 	
+	return nil
+}
+
+// validateEmail valida el formato del correo electrónico
+func (c *CreateUserController) validateEmail(email string) error {
+	if strings.TrimSpace(email) == "" {
+		return fmt.Errorf("el correo electrónico es requerido")
+	}
+
+	emailRegex := `^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`
+	matched, err := regexp.MatchString(emailRegex, email)
+
+	if err != nil {
+		return fmt.Errorf("error validando el correo electrónico")
+	}
+
+	if !matched {
+		return fmt.Errorf("el formato del correo electrónico no es válido")
+	}
+
+	return nil
+}
+
+// Funcion para validar la contraseña
+func (c *CreateUserController) validatePassword(password string) error {
+	if strings.TrimSpace(password) == "" {
+		return fmt.Errorf("la contraseña es requerida")
+	}
+
+	if len(password) < 8 {
+		return fmt.Errorf("la contraseña debe tener al menos 8 caracteres")
+	}
+
+	var (
+		hasUpper   bool
+		hasNumber  bool
+		hasSpecial bool
+	)
+
+	specialChars := "!@#$%^&*()_+-=[]{}|;:,.<>?/"
+
+	for _, char := range password {
+		if unicode.IsUpper(char) {
+			hasUpper = true
+		}
+		if unicode.IsNumber(char) {
+			hasNumber = true
+		}
+		for _, special := range specialChars {
+			if char == special {
+				hasSpecial = true
+				break
+			}
+		}
+	}
+
+	if !hasUpper && !hasNumber && !hasSpecial {
+		return fmt.Errorf("la contraseña debe contener al menos una mayúscula, un número y un carácter especial")
+	}
+
+	if !hasUpper && !hasNumber {
+		return fmt.Errorf("la contraseña debe contener al menos una mayúscula y un número")
+	}
+
+	if !hasUpper && !hasSpecial {
+		return fmt.Errorf("la contraseña debe contener al menos una mayúscula y un carácter especial")
+	}
+
+	if !hasNumber && !hasSpecial {
+		return fmt.Errorf("la contraseña debe contener al menos un número y un carácter especial")
+	}
+
+	if !hasUpper {
+		return fmt.Errorf("la contraseña debe contener al menos una mayúscula")
+	}
+
+	if !hasNumber {
+		return fmt.Errorf("la contraseña debe contener al menos un número")
+	}
+
+	if !hasSpecial {
+		return fmt.Errorf("la contraseña debe contener al menos un carácter especial (!@#$%^&*()_+-=[]{}|;:,.<>?/)")
+	}
+
 	return nil
 }
