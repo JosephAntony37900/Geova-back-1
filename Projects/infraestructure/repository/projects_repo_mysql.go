@@ -6,6 +6,7 @@ import (
 "github.com/JosephAntony37900/Geova-back-1/Projects/domain/entities"
 "github.com/JosephAntony37900/Geova-back-1/Projects/domain/repository"
 "github.com/JosephAntony37900/Geova-back-1/core"
+"time"
 )
 
 type ProjectMySQLRepository struct {
@@ -146,4 +147,42 @@ return nil, err
 projects = append(projects, project)
 }
 return projects, nil
+}
+func (r *ProjectMySQLRepository) GetProjectsStats(userId int, days int) ([]entities.DailyProjectCount, error) {
+    query := `
+        SELECT 
+            DATE(Fecha) as date,
+            COUNT(*) as count
+        FROM projects
+        WHERE user_id = ?
+            AND Fecha >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+            AND Fecha < CURDATE() + INTERVAL 1 DAY
+        GROUP BY DATE(Fecha)
+        ORDER BY date DESC
+    `
+
+    rows, err := r.db.DB.Query(query, userId, days)
+    if err != nil {
+        return nil, fmt.Errorf("error al consultar estadísticas diarias: %w", err)
+    }
+    defer rows.Close()
+
+    var results []entities.DailyProjectCount
+    for rows.Next() {
+        var dailyCount entities.DailyProjectCount
+        var dateTime time.Time
+        
+        if err := rows.Scan(&dateTime, &dailyCount.Count); err != nil {
+            return nil, fmt.Errorf("error al escanear fila: %w", err)
+        }
+        
+        dailyCount.Date = dateTime.Format("2006-01-02")
+        results = append(results, dailyCount)
+    }
+
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("error al iterar resultados: %w", err)
+    }
+
+    return results, nil
 }
