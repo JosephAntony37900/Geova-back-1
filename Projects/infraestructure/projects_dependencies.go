@@ -72,9 +72,11 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(infrastructure.ProjectRepo)
 	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(infrastructure.ProjectRepo)
 	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(infrastructure.ProjectRepo)
+	getProjectStatsUseCase := app_projects.NewGetProjectStatsUseCase(infrastructure.ProjectRepo)
 	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter, workerService)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(infrastructure.ProjectRepo)
 	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(infrastructure.ProjectRepo)
+
 
 	// Crear controladores
 	log.Println("INFO: Inicializando controladores...")
@@ -84,6 +86,7 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	getProjectByNameController := control_projects.NewGetProjectByNameController(getProjectByNameUseCase)
 	getProjectByCategoryController := control_projects.NewGetProjectByCategoryController(getProjectByCategoryUseCase)
 	getProjectByDateController := control_projects.NewGetProjectByDateController(getProjectByDateUseCase)
+	getProjectsStatsController := control_projects.NewGetProjectStatsController(getProjectStatsUseCase)
 	updateProjectController := control_projects.NewUpdateProjectController(updateProjectUseCase)
 	deleteProjectController := control_projects.NewDeleteProjectController(deleteProjectUseCase)
 	getProjectsByUserIdController := control_projects.NewGetProjectsByUserIdController(getProjectsByUserIdUseCase)
@@ -97,6 +100,7 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 		getProjectByNameController,
 		getProjectByCategoryController,
 		getProjectByDateController,
+		getProjectsStatsController,
 		updateProjectController,
 		deleteProjectController,
 		getProjectsByUserIdController)
