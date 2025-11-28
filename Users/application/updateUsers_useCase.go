@@ -1,4 +1,4 @@
-// application/update_user_usecase.go
+// geova-back-1/Users/application/updateUsers_useCase.go
 package application
 
 import (
@@ -22,92 +22,119 @@ func NewUpdateUserUseCase(repo repository.UserRepository, bcrypt services.IBcryp
 	}
 }
 
-func (uc *UpdateUserUseCase) Execute(userUpdate entities.User) (*entities.User, error) {
-	
-	existingUser, err := uc.repo.FindById(userUpdate.Id)
+type UpdateUserInput struct {
+	Id        int
+	Username  string
+	Nombre    string
+	Apellidos string
+	Email     string
+	Password  string // Opcional - solo si se quiere cambiar
+}
+
+type UpdateUserOutput struct {
+	User *entities.User
+}
+
+func (uc *UpdateUserUseCase) Execute(input UpdateUserInput) (*UpdateUserOutput, error) {
+	// Validación de negocio: campos requeridos
+	if err := uc.validateBusinessRules(input); err != nil {
+		return nil, err
+	}
+
+	// Validación de negocio: el usuario existe
+	existingUser, err := uc.repo.FindById(input.Id)
 	if err != nil {
-		return nil, fmt.Errorf("usuario con ID %d no encontrado: %w", userUpdate.Id, err)
+		return nil, fmt.Errorf("usuario no encontrado")
 	}
 
-	
-	if err := uc.validateUpdateData(userUpdate); err != nil {
-		return nil, fmt.Errorf("validación fallida: %w", err)
-	}
-
-	
-	if userUpdate.Email != existingUser.Email {
-		userWithEmail, _ := uc.repo.FindByEmail(userUpdate.Email)
-		if userWithEmail != nil && userWithEmail.Id != userUpdate.Id {
-			return nil, fmt.Errorf("el email %s ya está siendo usado por otro usuario", userUpdate.Email)
+	// Validación de negocio: email único (si cambió)
+	if input.Email != existingUser.Email {
+		if err := uc.validateEmailUniqueness(input.Email, input.Id); err != nil {
+			return nil, err
 		}
 	}
 
-	
-	updatedUser := *existingUser
-	updatedUser.Username = strings.TrimSpace(userUpdate.Username)
-	updatedUser.Nombre = strings.TrimSpace(userUpdate.Nombre)
-	updatedUser.Apellidos = strings.TrimSpace(userUpdate.Apellidos)
-	updatedUser.Email = strings.ToLower(strings.TrimSpace(userUpdate.Email))
+	// Construir el usuario actualizado
+	updatedUser := uc.buildUpdatedUser(existingUser, input)
 
-	
-	if userUpdate.Password != "" {
-		hashedPassword, err := uc.bcrypt.HashPassword(userUpdate.Password)
+	// Validación de negocio: si se cambia contraseña, hashearla
+	if input.Password != "" {
+		hashedPassword, err := uc.bcrypt.HashPassword(input.Password)
 		if err != nil {
-			return nil, fmt.Errorf("error al procesar la nueva contraseña: %w", err)
+			return nil, fmt.Errorf("error al procesar la contraseña")
 		}
 		updatedUser.Password = hashedPassword
 	}
 
-	
-	if err := uc.repo.Update(updatedUser); err != nil {
+	// Persistir cambios
+	if err := uc.repo.Update(*updatedUser); err != nil {
 		return nil, fmt.Errorf("error al actualizar usuario: %w", err)
 	}
 
-	
+	// Obtener usuario actualizado
 	finalUser, err := uc.repo.FindById(updatedUser.Id)
 	if err != nil {
-		
-		finalUser = &updatedUser
+		finalUser = updatedUser
 	}
-	
+
+	// Limpiar contraseña antes de retornar
 	finalUser.Password = ""
-	return finalUser, nil
+
+	return &UpdateUserOutput{
+		User: finalUser,
+	}, nil
 }
 
-func (uc *UpdateUserUseCase) validateUpdateData(user entities.User) error {
-	if user.Id <= 0 {
+// validateBusinessRules valida las reglas de negocio básicas
+func (uc *UpdateUserUseCase) validateBusinessRules(input UpdateUserInput) error {
+	if input.Id <= 0 {
 		return fmt.Errorf("ID de usuario inválido")
 	}
 
-	if strings.TrimSpace(user.Username) == "" {
+	if strings.TrimSpace(input.Username) == "" {
 		return fmt.Errorf("el nombre de usuario es requerido")
 	}
 
-	if len(user.Username) < 3 {
-		return fmt.Errorf("el nombre de usuario debe tener al menos 3 caracteres")
-	}
-
-	if strings.TrimSpace(user.Email) == "" {
+	if strings.TrimSpace(input.Email) == "" {
 		return fmt.Errorf("el email es requerido")
 	}
 
-	if !uc.isValidEmail(user.Email) {
-		return fmt.Errorf("el formato del email no es válido")
-	}
-
-	if strings.TrimSpace(user.Nombre) == "" {
+	if strings.TrimSpace(input.Nombre) == "" {
 		return fmt.Errorf("el nombre es requerido")
 	}
 
-	
-	if user.Password != "" && len(user.Password) < 6 {
-		return fmt.Errorf("la nueva contraseña debe tener al menos 6 caracteres")
+	// Regla de negocio: si se proporciona contraseña, debe cumplir longitud mínima
+	if input.Password != "" && len(input.Password) < 8 {
+		return fmt.Errorf("la contraseña debe tener al menos 8 caracteres")
 	}
 
 	return nil
 }
 
-func (uc *UpdateUserUseCase) isValidEmail(email string) bool {
-	email = strings.TrimSpace(email)
-	return strings.Contains(email, "@") && strings.Contains(email, ".")
+// validateEmailUniqueness valida que el email no esté en uso por otro usuario
+func (uc *UpdateUserUseCase) validateEmailUniqueness(email string, userId int) error {
+	userWithEmail, err := uc.repo.FindByEmail(email)
+	if err != nil {
+		// Si no existe usuario con ese email, está disponible
+		return nil
+	}
+
+	// Si existe pero es el mismo usuario, está bien
+	if userWithEmail.Id == userId {
+		return nil
+	}
+
+	// Email en uso por otro usuario
+	return fmt.Errorf("el email ya está siendo usado por otro usuario")
+}
+
+// buildUpdatedUser construye la entidad con los datos actualizados
+func (uc *UpdateUserUseCase) buildUpdatedUser(existing *entities.User, input UpdateUserInput) *entities.User {
+	updated := *existing
+	updated.Username = input.Username
+	updated.Nombre = input.Nombre
+	updated.Apellidos = input.Apellidos
+	updated.Email = input.Email
+	
+	return &updated
 }
