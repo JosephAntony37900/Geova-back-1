@@ -2,43 +2,98 @@ package routes
 
 import (
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 	"github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 )
 
-// RateLimiter gestiona los limitadores por IP
+// limiterEntry almacena un rate limiter con su timestamp de último uso
+type limiterEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+// RateLimiter gestiona los limitadores por IP con expiración automática
 type RateLimiter struct {
-	ips map[string]*rate.Limiter
-	mu  *sync.RWMutex
-	r   rate.Limit
-	b   int
+	ips       map[string]*limiterEntry
+	mu        sync.RWMutex
+	r         rate.Limit
+	b         int
+	ttl       time.Duration
+	cleanupInterval time.Duration
 }
 
-// NewRateLimiter crea un nuevo rate limiter
-func NewRateLimiter(r rate.Limit, b int) *RateLimiter {
-	return &RateLimiter{
-		ips: make(map[string]*rate.Limiter),
-		mu:  &sync.RWMutex{},
-		r:   r,
-		b:   b,
+type RateLimiterConfig struct {
+	RequestsPerSecond float64
+	Burst             int
+	TTL               time.Duration
+	CleanupInterval   time.Duration
+}
+
+func NewRateLimiter(config RateLimiterConfig) *RateLimiter {
+	rl := &RateLimiter{
+		ips:             make(map[string]*limiterEntry),
+		r:               rate.Limit(config.RequestsPerSecond),
+		b:               config.Burst,
+		ttl:             config.TTL,
+		cleanupInterval: config.CleanupInterval,
 	}
+
+	go rl.cleanupExpiredEntries()
+
+	return rl
 }
 
-// GetLimiter obtiene o crea un limiter para una IP
 func (rl *RateLimiter) GetLimiter(ip string) *rate.Limiter {
+	now := time.Now()
+
+	rl.mu.RLock()
+	entry, exists := rl.ips[ip]
+	if exists {
+		entry.lastSeen = now
+		rl.mu.RUnlock()
+		return entry.limiter
+	}
+	rl.mu.RUnlock()
+
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	limiter, exists := rl.ips[ip]
-	if !exists {
-		limiter = rate.NewLimiter(rl.r, rl.b)
-		rl.ips[ip] = limiter
+	entry, exists = rl.ips[ip]
+	if exists {
+		entry.lastSeen = now
+		return entry.limiter
+	}
+
+	limiter := rate.NewLimiter(rl.r, rl.b)
+	rl.ips[ip] = &limiterEntry{
+		limiter:  limiter,
+		lastSeen: now,
 	}
 
 	return limiter
+}
+
+// cleanupExpiredEntries elimina periódicamente las entradas antiguas
+func (rl *RateLimiter) cleanupExpiredEntries() {
+	ticker := time.NewTicker(rl.cleanupInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		rl.mu.Lock()
+		now := time.Now()
+		for ip, entry := range rl.ips {
+			if now.Sub(entry.lastSeen) > rl.ttl {
+				delete(rl.ips, ip)
+			}
+		}
+		rl.mu.Unlock()
+	}
 }
 
 func (rl *RateLimiter) RateLimitMiddleware() gin.HandlerFunc {
@@ -50,7 +105,6 @@ func (rl *RateLimiter) RateLimitMiddleware() gin.HandlerFunc {
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":   "Demasiadas peticiones. Intenta más tarde.",
 				"message": "Rate limit exceeded",
-				"ip":      ip,
 			})
 			c.Abort()
 			return
@@ -60,28 +114,70 @@ func (rl *RateLimiter) RateLimitMiddleware() gin.HandlerFunc {
 	}
 }
 
+// getEnvFloat obtiene un float desde variable de entorno o usa default
+func getEnvFloat(key string, defaultVal float64) float64 {
+	if val := os.Getenv(key); val != "" {
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			return f
+		}
+	}
+	return defaultVal
+}
+
+// getEnvInt obtiene un int desde variable de entorno o usa default
+func getEnvInt(key string, defaultVal int) int {
+	if val := os.Getenv(key); val != "" {
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
+		}
+	}
+	return defaultVal
+}
+
+// getEnvDuration obtiene una duración desde variable de entorno o usa default
+func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
+	if val := os.Getenv(key); val != "" {
+		if d, err := time.ParseDuration(val); err == nil {
+			return d
+		}
+	}
+	return defaultVal
+}
+
 func SetUpProjectsRoutes(r *gin.Engine, 
 	createProjectController *controllers.CreateProjectController,
 	getProjectsController *controllers.GetAllProjectsController,
 	getProjectByIdController *controllers.GetProjectByIdController,
 	getProjectByNameController *controllers.GetProjectByNameController,
-	GetProjectByCategoryController *controllers.GetProjectByCategoryController,
-	getProjetcByDateController *controllers.GetProjectByDateController,
+	getProjectByCategoryController *controllers.GetProjectByCategoryController,
+	getProjectByDateController *controllers.GetProjectByDateController,
 	getProjectsStats *controllers.GetProjectStatsController,
 	updateProjectController *controllers.UpdateProjectController,
 	deleteProjectController *controllers.DeleteProjectController,
 	getProjectByUserId *controllers.GetProjectsByUserIdController,
 ) {
-	// Operaciones de escritura: moderado (5 req/seg, burst de 10)
-	writeLimiter := NewRateLimiter(5, 10)
 	
-	// Operaciones de lectura: más permisivo (15 req/seg, burst de 30)
-	readLimiter := NewRateLimiter(15, 30)
+	writeLimiter := NewRateLimiter(RateLimiterConfig{
+		RequestsPerSecond: getEnvFloat("PROJECTS_WRITE_RATE_LIMIT", 5),
+		Burst:             getEnvInt("PROJECTS_WRITE_BURST_LIMIT", 10),
+		TTL:               getEnvDuration("PROJECTS_RATE_LIMIT_TTL", 10*time.Minute),
+		CleanupInterval:   getEnvDuration("PROJECTS_RATE_LIMIT_CLEANUP", 5*time.Minute),
+	})
 	
-	// Stats y consultas complejas: intermedio (8 req/seg, burst de 15)
-	queryLimiter := NewRateLimiter(8, 15)
+	readLimiter := NewRateLimiter(RateLimiterConfig{
+		RequestsPerSecond: getEnvFloat("PROJECTS_READ_RATE_LIMIT", 15),
+		Burst:             getEnvInt("PROJECTS_READ_BURST_LIMIT", 30),
+		TTL:               getEnvDuration("PROJECTS_RATE_LIMIT_TTL", 10*time.Minute),
+		CleanupInterval:   getEnvDuration("PROJECTS_RATE_LIMIT_CLEANUP", 5*time.Minute),
+	})
+	
+	queryLimiter := NewRateLimiter(RateLimiterConfig{
+		RequestsPerSecond: getEnvFloat("PROJECTS_QUERY_RATE_LIMIT", 8),
+		Burst:             getEnvInt("PROJECTS_QUERY_BURST_LIMIT", 15),
+		TTL:               getEnvDuration("PROJECTS_RATE_LIMIT_TTL", 10*time.Minute),
+		CleanupInterval:   getEnvDuration("PROJECTS_RATE_LIMIT_CLEANUP", 5*time.Minute),
+	})
 
-	// Rutas de escritura  - Más restrictivas
 	writeRoutes := r.Group("/projects")
 	writeRoutes.Use(writeLimiter.RateLimitMiddleware())
 	{
@@ -102,9 +198,8 @@ func SetUpProjectsRoutes(r *gin.Engine,
 	queryRoutes.Use(queryLimiter.RateLimitMiddleware())
 	{
 		queryRoutes.GET("/nombre/:nombre", getProjectByNameController.Execute)
-		queryRoutes.GET("/categoria/:categoria", GetProjectByCategoryController.Execute)
-		queryRoutes.GET("/fecha/:fecha", getProjetcByDateController.Execute)
+		queryRoutes.GET("/categoria/:categoria", getProjectByCategoryController.Execute)
+		queryRoutes.GET("/fecha/:fecha", getProjectByDateController.Execute)
 		queryRoutes.GET("/stats", getProjectsStats.Execute)
 	}
 }
-
