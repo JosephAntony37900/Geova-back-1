@@ -51,17 +51,17 @@ func NewRateLimiter(config RateLimiterConfig) *RateLimiter {
 
 // GetLimiter obtiene o crea un limiter para una IP (optimizado con RLock/Lock)
 func (rl *RateLimiter) GetLimiter(ip string) *rate.Limiter {
-	now := time.Now()
-
+	// Intento 1: lectura rápida con RLock (solo lectura, sin modificar lastSeen)
 	rl.mu.RLock()
 	entry, exists := rl.ips[ip]
 	if exists {
-		entry.lastSeen = now
+		limiter := entry.limiter
 		rl.mu.RUnlock()
-		return entry.limiter
+		return limiter
 	}
 	rl.mu.RUnlock()
 
+	now := time.Now()
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -152,7 +152,7 @@ func SetupUserRoutes(r *gin.Engine,
 	deleteUserController *controllers.DeleteUserController,
 	loginUserController *controllers.LoginUserController,
 ) {
-
+	
 	loginLimiter := NewRateLimiter(RateLimiterConfig{
 		RequestsPerSecond: getEnvFloat("USERS_LOGIN_RATE_LIMIT", 4),
 		Burst:             getEnvInt("USERS_LOGIN_BURST_LIMIT", 3),

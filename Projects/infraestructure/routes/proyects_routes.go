@@ -28,6 +28,7 @@ type RateLimiter struct {
 	cleanupInterval time.Duration
 }
 
+// RateLimiterConfig contiene la configuración del rate limiter
 type RateLimiterConfig struct {
 	RequestsPerSecond float64
 	Burst             int
@@ -44,23 +45,23 @@ func NewRateLimiter(config RateLimiterConfig) *RateLimiter {
 		cleanupInterval: config.CleanupInterval,
 	}
 
+	// Iniciar goroutine de limpieza
 	go rl.cleanupExpiredEntries()
 
 	return rl
 }
 
 func (rl *RateLimiter) GetLimiter(ip string) *rate.Limiter {
-	now := time.Now()
-
 	rl.mu.RLock()
 	entry, exists := rl.ips[ip]
 	if exists {
-		entry.lastSeen = now
+		limiter := entry.limiter
 		rl.mu.RUnlock()
-		return entry.limiter
+		return limiter
 	}
 	rl.mu.RUnlock()
 
+	now := time.Now()
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -156,7 +157,7 @@ func SetUpProjectsRoutes(r *gin.Engine,
 	deleteProjectController *controllers.DeleteProjectController,
 	getProjectByUserId *controllers.GetProjectsByUserIdController,
 ) {
-	
+
 	writeLimiter := NewRateLimiter(RateLimiterConfig{
 		RequestsPerSecond: getEnvFloat("PROJECTS_WRITE_RATE_LIMIT", 5),
 		Burst:             getEnvInt("PROJECTS_WRITE_BURST_LIMIT", 10),
