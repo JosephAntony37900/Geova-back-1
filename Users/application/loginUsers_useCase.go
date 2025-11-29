@@ -33,24 +33,24 @@ type LoginOutput struct {
 
 func (lu *LoginUseCase) Execute(input LoginInput) (*LoginOutput, error) {
 	if input.Email == "" {
-		return nil, fmt.Errorf("el correo electrónico es requerido")
+		return nil, fmt.Errorf("El correo electrónico es requerido")
 	}
 	if input.Password == "" {
-		return nil, fmt.Errorf("la contraseña es requerida")
+		return nil, fmt.Errorf("La contraseña es requerida")
 	}
 
 	user, err := lu.db.FindByEmail(input.Email)
 	if err != nil {
-		return nil, fmt.Errorf("credenciales inválidas")
+		return nil, fmt.Errorf("Correo electrónico no registrado")
 	}
 
 	if !lu.bcrypt.ComparePasswords(user.Password, input.Password) {
-		return nil, fmt.Errorf("credenciales inválidas")
+		return nil, fmt.Errorf("Contraseña inválida")
 	}
 
 	token, err := lu.jwt.GenerateToken(user.Id)
 	if err != nil {
-		return nil, fmt.Errorf("error al iniciar sesión, intente nuevamente")
+		return nil, fmt.Errorf("Error al iniciar sesión, intente nuevamente")
 	}
 
 	return &LoginOutput{
