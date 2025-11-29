@@ -33,7 +33,7 @@ type LoginOutput struct {
 
 func (lu *LoginUseCase) Execute(input LoginInput) (*LoginOutput, error) {
 	if input.Email == "" {
-		return nil, fmt.Errorf("El coorreo electrónico es requerido")
+		return nil, fmt.Errorf("El correo electrónico es requerido")
 	}
 	if input.Password == "" {
 		return nil, fmt.Errorf("La contraseña es requerida")
