@@ -1,3 +1,4 @@
+//geova-back-1/Projects/infraestructure/projects_dependencies.go
 package infraestructure
 
 import (
@@ -5,6 +6,7 @@ import (
 
 	app_projects "github.com/JosephAntony37900/Geova-back-1/Projects/application"
 	domain_projects "github.com/JosephAntony37900/Geova-back-1/Projects/domain/repository"
+	domain_services "github.com/JosephAntony37900/Geova-back-1/Projects/domain/services"
 	control_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/controllers"
 	repo_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/repository"
 	routes_projects "github.com/JosephAntony37900/Geova-back-1/Projects/infraestructure/routes"
@@ -18,6 +20,7 @@ import (
 type ProjectInfrastructure struct {
 	DB          *core.Conn_MySQL
 	ProjectRepo domain_projects.ProjectRepository
+	WorkerSrv   *domain_services.ImageUploadWorkerService
 }
 
 // NewProjectInfrastructure crea e inicializa toda la infraestructura de proyectos
@@ -56,17 +59,25 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	}
 	log.Println("INFO: Cloudinary inicializado exitosamente")
 
+	// Inicializar ImageUploadWorkerService
+	log.Println("INFO: Inicializando ImageUploadWorkerService...")
+	workerService := domain_services.NewImageUploadWorkerService(cloudinaryAdapter, 3, 100)
+	infrastructure.WorkerSrv = workerService
+	log.Println("INFO: ImageUploadWorkerService inicializado exitosamente")
+
 	// Crear casos de uso
 	log.Println("INFO: Inicializando casos de uso...")
-	createProjectUseCase := app_projects.NewCreateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	createProjectUseCase := app_projects.NewCreateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter, workerService)
 	getAllProjectsUseCase := app_projects.NewGeProjectsUseCase(infrastructure.ProjectRepo)
 	getProjectByIdUseCase := app_projects.NewGetProjectByIdUseCase(infrastructure.ProjectRepo)
 	getProjectByNameUseCase := app_projects.NewGetProjectsByNameUseCase(infrastructure.ProjectRepo)
 	getProjectByCategoryUseCase := app_projects.NewGetProjectsByCategoryUseCase(infrastructure.ProjectRepo)
 	getProjectByDateUseCase := app_projects.NewGetProjectsByDateUseCase(infrastructure.ProjectRepo)
-	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter)
+	getProjectStatsUseCase := app_projects.NewGetProjectStatsUseCase(infrastructure.ProjectRepo)
+	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter, workerService)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(infrastructure.ProjectRepo)
 	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(infrastructure.ProjectRepo)
+
 
 	// Crear controladores
 	log.Println("INFO: Inicializando controladores...")
@@ -76,6 +87,7 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	getProjectByNameController := control_projects.NewGetProjectByNameController(getProjectByNameUseCase)
 	getProjectByCategoryController := control_projects.NewGetProjectByCategoryController(getProjectByCategoryUseCase)
 	getProjectByDateController := control_projects.NewGetProjectByDateController(getProjectByDateUseCase)
+	getProjectsStatsController := control_projects.NewGetProjectStatsController(getProjectStatsUseCase)
 	updateProjectController := control_projects.NewUpdateProjectController(updateProjectUseCase)
 	deleteProjectController := control_projects.NewDeleteProjectController(deleteProjectUseCase)
 	getProjectsByUserIdController := control_projects.NewGetProjectsByUserIdController(getProjectsByUserIdUseCase)
@@ -89,6 +101,7 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 		getProjectByNameController,
 		getProjectByCategoryController,
 		getProjectByDateController,
+		getProjectsStatsController,
 		updateProjectController,
 		deleteProjectController,
 		getProjectsByUserIdController)
@@ -100,6 +113,12 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 // Shutdown cierra todas las conexiones de forma limpia
 func (pi *ProjectInfrastructure) Shutdown() {
 	log.Println("INFO: Cerrando infraestructura de proyectos...")
+
+	// Shutdown del worker service primero
+	if pi.WorkerSrv != nil {
+		pi.WorkerSrv.Shutdown()
+		log.Println("INFO: Worker service cerrado")
+	}
 
 	if pi.DB != nil && pi.DB.DB != nil {
 		pi.DB.DB.Close()
