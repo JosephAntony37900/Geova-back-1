@@ -156,6 +156,7 @@ func SetUpProjectsRoutes(r *gin.Engine,
 	updateProjectController *controllers.UpdateProjectController,
 	deleteProjectController *controllers.DeleteProjectController,
 	getProjectByUserId *controllers.GetProjectsByUserIdController,
+	getTotalProjectsByUser *controllers.GetTotalProjectsByUserController,
 ) {
 
 	writeLimiter := NewRateLimiter(RateLimiterConfig{
@@ -202,5 +203,6 @@ func SetUpProjectsRoutes(r *gin.Engine,
 		queryRoutes.GET("/categoria/:categoria", getProjectByCategoryController.Execute)
 		queryRoutes.GET("/fecha/:fecha", getProjectByDateController.Execute)
 		queryRoutes.GET("/stats", getProjectsStats.Execute)
+		queryRoutes.GET("/total/user/:userId", getTotalProjectsByUser.Execute)
 	}
 }

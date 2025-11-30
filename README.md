@@ -356,6 +356,28 @@ CLOUDINARY_API_SECRET=your-api-secret
 
 # CORS (opcional)
 ALLOWED_ORIGIN=https://your-frontend-domain.com
+
+# Rate Limiting para proyectos
+PROJECTS_WRITE_RATE_LIMIT=you-valor-of-configuration-here
+PROJECTS_WRITE_BURST_LIMIT=you-valor-of-configuration-here
+PROJECTS_READ_RATE_LIMIT=you-valor-of-configuration-here
+PROJECTS_READ_BURST_LIMIT=you-valor-of-configuration-here
+PROJECTS_QUERY_RATE_LIMIT=you-valor-of-configuration-here
+PROJECTS_QUERY_BURST_LIMIT=you-valor-of-configuration-here
+PROJECTS_RATE_LIMIT_TTL=you-valor-of-configuration-here
+PROJECTS_RATE_LIMIT_CLEANUP=5m
+
+# Rate Limiting para usuarios
+USERS_LOGIN_RATE_LIMIT=you-valor-of-configuration-here
+USERS_LOGIN_BURST_LIMIT=you-valor-of-configuration-here
+USERS_REGISTER_RATE_LIMIT=you-valor-of-configuration-here
+USERS_REGISTER_BURST_LIMIT=you-valor-of-configuration-here
+USERS_MODIFY_RATE_LIMIT=you-valor-of-configuration-here
+USERS_MODIFY_BURST_LIMIT=you-valor-of-configuration-here
+USERS_READ_RATE_LIMIT=you-valor-of-configuration-here
+USERS_READ_BURST_LIMIT=you-valor-of-configuration-here
+USERS_RATE_LIMIT_TTL=you-valor-of-configuration-here
+USERS_RATE_LIMIT_CLEANUP=you-valor-of-configuration-here
 ```
 
 ### CORS
