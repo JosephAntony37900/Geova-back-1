@@ -77,6 +77,7 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	updateProjectUseCase := app_projects.NewUpdateProjectUseCase(infrastructure.ProjectRepo, cloudinaryAdapter, workerService)
 	deleteProjectUseCase := app_projects.NewDeleteProjectUseCase(infrastructure.ProjectRepo)
 	getProjectsByUserIdUseCase := app_projects.NewGetProjectsByUserIdUseCase(infrastructure.ProjectRepo)
+	getTotalProjectsByUserUseCase := app_projects.NewGetTotalProjectsByUserUseCase(infrastructure.ProjectRepo)
 
 
 	// Crear controladores
@@ -91,6 +92,7 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 	updateProjectController := control_projects.NewUpdateProjectController(updateProjectUseCase)
 	deleteProjectController := control_projects.NewDeleteProjectController(deleteProjectUseCase)
 	getProjectsByUserIdController := control_projects.NewGetProjectsByUserIdController(getProjectsByUserIdUseCase)
+	getTotalProjectsByUserController := control_projects.NewGetTotalProjectsByUserController(getTotalProjectsByUserUseCase)
 
 	// Configurar rutas
 	log.Println("INFO: Configurando rutas de proyectos...")
@@ -104,7 +106,8 @@ func InitProjectDependencies(engine *gin.Engine) *ProjectInfrastructure {
 		getProjectsStatsController,
 		updateProjectController,
 		deleteProjectController,
-		getProjectsByUserIdController)
+		getProjectsByUserIdController,
+		getTotalProjectsByUserController,)
 
 	log.Println("INFO: Infraestructura de proyectos inicializada exitosamente")
 	return infrastructure
