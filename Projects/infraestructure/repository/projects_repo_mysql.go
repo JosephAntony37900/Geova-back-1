@@ -186,3 +186,13 @@ func (r *ProjectMySQLRepository) GetProjectsStats(userId int, days int) ([]entit
 
     return results, nil
 }
+
+func (r *ProjectMySQLRepository) GetTotalProjectsByUser(userId string) (int, error) {
+    query := `SELECT COUNT(*) FROM projects WHERE user_id = ?`
+    var count int
+    err := r.db.DB.QueryRow(query, userId).Scan(&count)
+    if err != nil {
+        return 0, fmt.Errorf("error al obtener el total de proyectos: %w", err)
+    }
+    return count, nil
+}

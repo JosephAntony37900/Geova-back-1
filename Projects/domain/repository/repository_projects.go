@@ -16,5 +16,5 @@ type ProjectRepository interface {
 	FindByDate(fecha string) ([]entities.Project, error)
 	FindByUserId(userId int) ([]entities.Project, error)
 	GetProjectsStats(userId int, days int) ([]entities.DailyProjectCount, error)
-
+	GetTotalProjectsByUser(userId string) (int, error)
 }
