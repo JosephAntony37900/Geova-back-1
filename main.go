@@ -23,48 +23,52 @@ func main() {
 		log.Printf("Warning: Error cargando el archivo .env: %v", err)
 	}
 
-	// Configurar Gin
 	engine := gin.Default()
 
-	// Configurar CORS
 	engine.Use(core.SetupCORS())
 
-	// Inicializar dependencias de usuarios y proyectos
 	user_infra.InitUserDependencies(engine)
 	projectInfra := project_infra.InitProjectDependencies(engine)
 
-	// Configurar servidor HTTP
 	port := "0.0.0.0:8000"
 	srv := &http.Server{
 		Addr:    port,
 		Handler: engine,
 	}
 
-	// Iniciar servidor en una goroutine
-	go func() {
-		log.Printf("🚀 Servidor iniciando en %s", port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Error al iniciar el servidor: %v", err)
-		}
-	}()
+	go startServer(srv, port)
 
-	// Esperar señal de shutdown
+	waitForShutdown(srv, projectInfra)
+}
+
+// startServer inicia el servidor HTTP en una goroutine
+func startServer(srv *http.Server, port string) {
+	log.Printf("🚀 Servidor iniciando en %s", port)
+	
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("❌ Error al iniciar el servidor: %v", err)
+	}
+}
+
+func waitForShutdown(srv *http.Server, projectInfra *project_infra.ProjectInfrastructure) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	
 	<-quit
-	log.Println("INFO: Shutdown signal recibida, cerrando servidor...")
+	log.Println("Señal de shutdown recibida, cerrando servidor...")
 
-	// Shutdown graceful con timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Shutdown de infraestructura de proyectos (incluye worker service)
+	//Shutdown de infraestructura de proyectos 
+	log.Println("Cerrando infraestructura de proyectos...")
 	projectInfra.Shutdown()
 
 	// Shutdown del servidor HTTP
+	log.Println("Cerrando servidor HTTP...")
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("ERROR: Error durante shutdown del servidor: %v", err)
+		log.Printf("❌ Error durante shutdown del servidor: %v", err)
 	}
 
-	log.Println("INFO: Servidor cerrado exitosamente")
+	log.Println("Servidor cerrado exitosamente")
 }

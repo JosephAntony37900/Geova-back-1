@@ -1,3 +1,4 @@
+//geova-back-1/Projects/domain/services/image_upload_worker_service.go
 package services
 
 import (
@@ -182,7 +183,6 @@ func (s *ImageUploadWorkerService) SubmitUploadJobSync(localPath string, timeout
 		return result.URL, nil
 	case <-time.After(timeout):
 		// En caso de timeout, el resultado podría aún llegar al canal buffered
-		// pero no causará leak porque el buffer es de tamaño 1
 		log.Printf("WARNING: Timeout esperando resultado de subida para: %s", localPath)
 		return "", fmt.Errorf("timeout esperando resultado de subida de imagen")
 	}
